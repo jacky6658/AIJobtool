@@ -92,7 +92,7 @@ const AppLauncherDemo: React.FC = () => {
       name: "ReelMind短影音智能體",
       icon: "🎬",
       description: "輸入需求即可自動生成帳號定位、腳本選題與短影音腳本。",
-      href: "/apps/reelmind-ai-agent",
+      href: "https://reelmind.aijob.com.tw",
       category: "AI智能體",
       tags: ["短影音", "內容策略", "影片腳本"],
     },
