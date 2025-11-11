@@ -211,12 +211,18 @@ const AppLauncherDemo: React.FC = () => {
               : "bg-white/90 border-slate-200/80 text-slate-900 backdrop-blur-sm"
           }`}
         >
-          <div className="mb-8">
-            <div className="text-xs uppercase tracking-wide text-indigo-500 font-semibold mb-1">
+          {/* ✅ 加了 Logo 的區塊 */}
+          <div className="mb-8 flex flex-col items-center text-center">
+            <img
+              src="https://drive.google.com/uc?id=1l9gayI1WnzVdYb4JSujF5TUMD09NmIgA"
+              alt="AIJOB Logo"
+              className="w-16 h-16 rounded-full border border-slate-700/50 shadow-lg mb-3 object-cover transition-transform hover:scale-105"
+            />
+            <div className="text-xs uppercase tracking-wide text-indigo-500 font-semibold">
               AIJob
             </div>
-            <div className="text-xl font-bold">AI工具庫</div>
-            <p className="mt-2 text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+            <div className="text-xl font-bold mt-1">AI工具庫</div>
+            <p className="mt-2 text-xs text-slate-500 dark:text-slate-400 leading-relaxed px-3">
               集中管理你的 AI 工具與智能體，從這裡出發啟動工作流程。
             </p>
           </div>
@@ -430,7 +436,7 @@ const AppLauncherDemo: React.FC = () => {
                           {app.description}
                         </div>
                         {app.tags && (
-                          <div className="flex flex-wrap justify-center gap-1">
+                          <div className="flex flex-wrap justify中心 gap-1">
                             {app.tags.map((tag) => (
                               <span
                                 key={tag}
