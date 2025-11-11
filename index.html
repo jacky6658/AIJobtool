@@ -3,6 +3,26 @@
   <head>
     <meta charset="UTF-8" />
     <title>AI Tool Launcher Demo</title>
+
+    <!-- 加入 Tailwind CDN（重點） -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      // 如果之後要客製顏色或字體可以在這裡改
+      tailwind.config = {
+        theme: {
+          extend: {},
+        },
+      };
+    </script>
+
+    <!-- 這一段可以保留，確保字型 OK -->
+    <style>
+      body {
+        margin: 0;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>
