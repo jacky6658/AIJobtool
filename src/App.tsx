@@ -100,7 +100,7 @@ const AppLauncherDemo: React.FC = () => {
       name: "HR招募智能體",
       icon: "💼",
       description: "快速生成職缺描述、面試問題與人才畫像分析。",
-      href: "/apps/hr-recruit-agent",
+      href: "https://step1nerecruit.zeabur.app/",
       category: "AI智能體",
       tags: ["HR", "招募", "面試題目"],
     },
