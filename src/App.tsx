@@ -214,7 +214,7 @@ const AppLauncherDemo: React.FC = () => {
           {/* ✅ 加了 Logo 的區塊 */}
           <div className="mb-8 flex flex-col items-center text-center">
             <img
-              src="https://drive.google.com/uc?id=1l9gayI1WnzVdYb4JSujF5TUMD09NmIgA"
+              src="https://drive.google.com/uc?export=view&id=1l9gayI1WnzVdYb4JSujF5TUMD09NmIgA"
               alt="AIJOB Logo"
               className="w-16 h-16 rounded-full border border-slate-700/50 shadow-lg mb-3 object-cover transition-transform hover:scale-105"
             />
