@@ -151,6 +151,26 @@ const AppLauncherDemo: React.FC = () => {
   const [createOpen, setCreateOpen] = React.useState<boolean>(false);
   const [newCategory, setNewCategory] = React.useState<string>("");
 
+  // 確保 Admin 狀態與環境變數同步（每次渲染時檢查）
+  React.useEffect(() => {
+    // 如果 ADMIN_HASH 未設定，強制關閉 Admin 模式
+    if (!ADMIN_HASH || ADMIN_HASH.trim() === "") {
+      setIsAdmin(false);
+      return;
+    }
+    // 如果已登入，驗證 localStorage 中的值是否仍然有效
+    if (isAdmin) {
+      const stored = localStorage.getItem("aijob-admin-hash");
+      if (!stored || stored !== ADMIN_HASH) {
+        setIsAdmin(false);
+        try {
+          localStorage.removeItem("aijob-admin-hash");
+          localStorage.removeItem("aijob-admin-secret");
+        } catch {}
+      }
+    }
+  }, [isAdmin]);
+
   const isDark = theme === "dark";
 
   /** ====== 初始化：收藏/主題、本機清理、載 catalog、Admin 登入/登出 ====== */
@@ -344,6 +364,7 @@ const AppLauncherDemo: React.FC = () => {
     // 如果沒有設定完整 URL，使用相對路徑（同一個服務）
     let apiEndpoint = CATALOG_API_ENDPOINT;
     if (!apiEndpoint || apiEndpoint.trim() === "") {
+      console.log("⚠️ VITE_CATALOG_API_ENDPOINT 未設定，跳過自動上傳");
       return false; // 沒有設定 API endpoint，跳過上傳
     }
     
@@ -351,6 +372,8 @@ const AppLauncherDemo: React.FC = () => {
     if (apiEndpoint.startsWith('/')) {
       apiEndpoint = `${window.location.origin}${apiEndpoint}`;
     }
+
+    console.log("📤 嘗試上傳 catalog 到:", apiEndpoint);
 
     // 取得原始密碼（用於 API 授權）
     let adminSecret = "";
@@ -360,12 +383,12 @@ const AppLauncherDemo: React.FC = () => {
         adminSecret = atob(encoded);
       }
     } catch (error) {
-      console.error("讀取 Admin 密碼失敗:", error);
+      console.error("❌ 讀取 Admin 密碼失敗:", error);
       return false;
     }
 
     if (!adminSecret) {
-      console.warn("無法取得 Admin 密碼，跳過 API 上傳");
+      console.warn("⚠️ 無法取得 Admin 密碼，跳過 API 上傳");
       return false;
     }
 
@@ -380,14 +403,16 @@ const AppLauncherDemo: React.FC = () => {
       });
 
       if (response.ok) {
+        const result = await response.json().catch(() => ({}));
+        console.log("✅ 上傳成功:", result);
         return true;
       } else {
         const errorData = await response.json().catch(() => ({}));
-        console.error("上傳失敗:", response.status, response.statusText, errorData);
+        console.error("❌ 上傳失敗:", response.status, response.statusText, errorData);
         return false;
       }
     } catch (error) {
-      console.error("上傳 catalog 到 API 失敗:", error);
+      console.error("❌ 上傳 catalog 到 API 失敗:", error);
       return false;
     }
   };
@@ -496,7 +521,11 @@ const AppLauncherDemo: React.FC = () => {
                   {CATALOG_API_ENDPOINT ? (
                     <div className="text-green-600 dark:text-green-400">• 已設定 API，會自動上傳 ✓</div>
                   ) : (
-                    <div className="text-amber-600 dark:text-amber-400">• 未設定 API，需手動匯出上傳</div>
+                    <div className="text-amber-600 dark:text-amber-400">
+                      • 未設定 API，需手動匯出上傳
+                      <br />
+                      <span className="text-[9px] text-amber-500">請設定 VITE_CATALOG_API_ENDPOINT</span>
+                    </div>
                   )}
                 </div>
               </div>
