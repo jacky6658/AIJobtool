@@ -106,7 +106,7 @@ const AppLauncherDemo: React.FC = () => {
     },
     {
       name: "GPT",
-      icon: "🤖",
+      icon: "/images/ChatGPT.webp",
       description: "使用 OpenAI GPT 系列模型進行智能對話。",
       href: "https://chat.openai.com/",
       category: "AI對話",
@@ -114,7 +114,7 @@ const AppLauncherDemo: React.FC = () => {
     },
     {
       name: "Gemini",
-      icon: "🌟",
+      icon: "/images/gemini.webp",
       description: "由 Google 推出的多模態 AI 對話系統。",
       href: "https://gemini.google.com/",
       category: "AI對話",
@@ -122,7 +122,7 @@ const AppLauncherDemo: React.FC = () => {
     },
     {
       name: "Manus",
-      icon: "🧠",
+      icon: "/images/manus-icon.webp",
       description: "高效能中文 AI 對話系統，支援多場景應用。",
       href: "https://manus.im/",
       category: "AI對話",
@@ -216,7 +216,7 @@ const AppLauncherDemo: React.FC = () => {
             <img
               src="https://static.wixstatic.com/media/9705bb_dd62dc9b5ff6496a9a9560ca516f9851~mv2.png"
               alt="AIJOB Logo"
-              className="w-16 h-16 rounded-full border border-slate-700/50 shadow-lg mb-3 object-cover transition-transform hover:scale-105"
+              className="w-28 h-auto mb-3 object-contain drop-shadow-md"
             />
             <div className="text-xs uppercase tracking-wide text-indigo-500 font-semibold">
               AIJob
