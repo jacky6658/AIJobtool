@@ -110,7 +110,7 @@ const AppLauncherDemo: React.FC = () => {
   const apps: App[] = [
     {
       name: "ReelMind短影音智能體",
-      icon: "🎬",
+      icon: "/images/aijob5.png",
       description: "輸入需求即可自動生成帳號定位、腳本選題與短影音腳本。",
       href: "https://reelmind.aijob.com.tw",
       category: "AI智能體",
@@ -118,7 +118,7 @@ const AppLauncherDemo: React.FC = () => {
     },
     {
       name: "HR招募智能體",
-      icon: "💼",
+      icon: "/images/aijob5.png",
       description: "快速生成職缺描述、面試問題與人才畫像分析。",
       href: "https://step1nerecruit.zeabur.app/",
       category: "AI智能體",
