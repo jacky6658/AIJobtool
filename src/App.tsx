@@ -6,7 +6,7 @@ const AppLauncherDemo: React.FC = () => {
 
   type App = {
     name: string;
-    icon: string;
+    icon: string; // 支援 emoji 或圖片路徑（/ 或 http 開頭）
     description: string;
     href: string;
     category: Category;
@@ -38,7 +38,7 @@ const AppLauncherDemo: React.FC = () => {
       }
 
       const storedTheme = window.localStorage.getItem("aijob-theme");
-      if (storedTheme === "light" || "dark") {
+      if (storedTheme === "light" || storedTheme === "dark") {
         setTheme(storedTheme as "light" | "dark");
       }
     } catch (e) {
@@ -87,6 +87,26 @@ const AppLauncherDemo: React.FC = () => {
     showToast(isFavorite ? "已從收藏移除" : "已加入收藏");
   };
 
+  // ✅ 依據 icon 字串決定渲染 <img> 或 emoji
+  const renderIcon = (icon: string, alt: string) => {
+    const isImg =
+      typeof icon === "string" &&
+      (icon.startsWith("/") || icon.startsWith("http"));
+
+    if (isImg) {
+      return (
+        <img
+          src={icon}
+          alt={alt}
+          className="h-full w-full object-contain"
+          loading="lazy"
+        />
+      );
+    }
+    // emoji
+    return <span className="text-2xl">{icon}</span>;
+  };
+
   const apps: App[] = [
     {
       name: "ReelMind短影音智能體",
@@ -106,7 +126,7 @@ const AppLauncherDemo: React.FC = () => {
     },
     {
       name: "GPT",
-      icon: "/images/ChatGPT.png",
+      icon: "/images/ChatGPT.png", // 若用 .webp 請改成 /images/ChatGPT.webp
       description: "使用 OpenAI GPT 系列模型進行智能對話。",
       href: "https://chat.openai.com/",
       category: "AI對話",
@@ -114,7 +134,7 @@ const AppLauncherDemo: React.FC = () => {
     },
     {
       name: "Gemini",
-      icon: "/images/gemini.png",
+      icon: "/images/gemini.png", // 或 /images/gemini.webp
       description: "由 Google 推出的多模態 AI 對話系統。",
       href: "https://gemini.google.com/",
       category: "AI對話",
@@ -122,7 +142,7 @@ const AppLauncherDemo: React.FC = () => {
     },
     {
       name: "Manus",
-      icon: "/images/manus.png",
+      icon: "/images/manus.png", // 或 /images/manus-icon.webp
       description: "高效能中文 AI 對話系統，支援多場景應用。",
       href: "https://manus.im/",
       category: "AI對話",
@@ -181,10 +201,7 @@ const AppLauncherDemo: React.FC = () => {
             : "bg-white/90 border-slate-200 text-slate-800 backdrop-blur-sm"
         }`}
       >
-        <button
-          onClick={() => setSidebarOpen(true)}
-          className="text-xl"
-        >
+        <button onClick={() => setSidebarOpen(true)} className="text-xl">
           ☰
         </button>
         <span className="font-semibold text-sm">AIJob 工具庫</span>
@@ -211,7 +228,7 @@ const AppLauncherDemo: React.FC = () => {
               : "bg-white/90 border-slate-200/80 text-slate-900 backdrop-blur-sm"
           }`}
         >
-          {/* ✅ 加了 Logo 的區塊 */}
+          {/* Logo 區塊（無圓框） */}
           <div className="mb-8 flex flex-col items-center text-center">
             <img
               src="https://static.wixstatic.com/media/9705bb_dd62dc9b5ff6496a9a9560ca516f9851~mv2.png"
@@ -279,9 +296,7 @@ const AppLauncherDemo: React.FC = () => {
           <header className="mb-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h1 className="text-xl font-semibold">
-                  {activeCategory}
-                </h1>
+                <h1 className="text-xl font-semibold">{activeCategory}</h1>
                 <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
                   點擊下方任一圖示卡片，即可開啟對應工具或頁面。
                 </p>
@@ -327,7 +342,9 @@ const AppLauncherDemo: React.FC = () => {
                           : "border-slate-200 bg-white/80 text-slate-700 hover:border-indigo-300 hover:text-indigo-600"
                       }`}
                     >
-                      <span>{app.icon}</span>
+                      <span className="inline-flex h-4 w-4 items-center justify-center overflow-hidden">
+                        {renderIcon(app.icon, app.name)}
+                      </span>
                       <span>{app.name}</span>
                     </button>
                   ))}
@@ -349,7 +366,7 @@ const AppLauncherDemo: React.FC = () => {
                     </button>
                   )}
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap justify-center gap-2">
                   {availableTags.map((tag) => (
                     <button
                       key={tag}
@@ -412,20 +429,20 @@ const AppLauncherDemo: React.FC = () => {
                               ? "text-yellow-400 scale-110"
                               : "text-slate-300 hover:text-slate-400"
                           }`}
-                          aria-label={
-                            isFavoriteApp ? "移除收藏" : "加入收藏"
-                          }
+                          aria-label={isFavoriteApp ? "移除收藏" : "加入收藏"}
                         >
                           {isFavoriteApp ? "★" : "☆"}
                         </button>
 
+                        {/* ✅ 圖標（圖片或 emoji） */}
                         <div
-                          className={`mb-3 flex h-12 w-12 items-center justify-center rounded-xl text-2xl ${
+                          className={`mb-3 flex h-12 w-12 items-center justify-center rounded-xl ${
                             isDark ? "bg-slate-800" : "bg-indigo-50"
-                          }`}
+                          } overflow-hidden`}
                         >
-                          {app.icon}
+                          {renderIcon(app.icon, app.name)}
                         </div>
+
                         <div className="font-semibold mb-1 text-sm">
                           {app.name}
                         </div>
@@ -436,7 +453,7 @@ const AppLauncherDemo: React.FC = () => {
                           {app.description}
                         </div>
                         {app.tags && (
-                          <div className="flex flex-wrap justify中心 gap-1">
+                          <div className="flex flex-wrap justify-center gap-1">
                             {app.tags.map((tag) => (
                               <span
                                 key={tag}
@@ -473,13 +490,15 @@ const AppLauncherDemo: React.FC = () => {
               ✕
             </button>
             <div className="flex flex-col items-center text-center">
+              {/* ✅ Modal 圖標（圖片或 emoji） */}
               <div
-                className={`mb-3 flex h-12 w-12 items-center justify-center rounded-xl text-2xl ${
+                className={`mb-3 flex h-12 w-12 items-center justify-center rounded-xl ${
                   isDark ? "bg-slate-800" : "bg-indigo-50"
-                }`}
+                } overflow-hidden`}
               >
-                {selectedApp.icon}
+                {renderIcon(selectedApp.icon, selectedApp.name)}
               </div>
+
               <h2 className="text-lg font-semibold mb-1">
                 {selectedApp.name}
               </h2>
