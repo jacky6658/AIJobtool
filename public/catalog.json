@@ -3,7 +3,8 @@
     "AI智能體",
     "AI對話",
     "AI寫程式工具",
-    "部署平台"
+    "部署平台",
+    "AI自動化"
   ],
   "apps": [
     {
@@ -12,7 +13,11 @@
       "description": "輸入需求即可自動生成帳號定位、腳本選題與短影音腳本。",
       "href": "https://reelmind.aijob.com.tw",
       "category": "AI智能體",
-      "tags": ["短影音", "內容策略", "影片腳本"]
+      "tags": [
+        "短影音",
+        "內容策略",
+        "影片腳本"
+      ]
     },
     {
       "name": "HR招募智能體",
@@ -20,7 +25,11 @@
       "description": "快速生成職缺描述、面試問題與人才畫像分析。",
       "href": "https://step1nerecruit.zeabur.app/",
       "category": "AI智能體",
-      "tags": ["HR", "招募", "面試題目"]
+      "tags": [
+        "HR",
+        "招募",
+        "面試題目"
+      ]
     },
     {
       "name": "GPT",
@@ -28,7 +37,11 @@
       "description": "使用 OpenAI GPT 系列模型進行智能對話。",
       "href": "https://chat.openai.com/",
       "category": "AI對話",
-      "tags": ["通用", "英文", "程式"]
+      "tags": [
+        "通用",
+        "英文",
+        "程式"
+      ]
     },
     {
       "name": "Gemini",
@@ -36,7 +49,11 @@
       "description": "由 Google 推出的多模態 AI 對話系統。",
       "href": "https://gemini.google.com/",
       "category": "AI對話",
-      "tags": ["多模態", "圖片", "影片"]
+      "tags": [
+        "多模態",
+        "圖片",
+        "影片"
+      ]
     },
     {
       "name": "Manus",
@@ -44,7 +61,11 @@
       "description": "高效能中文 AI 對話系統，支援多場景應用。",
       "href": "https://manus.im/",
       "category": "AI對話",
-      "tags": ["中文", "效率", "本地化"]
+      "tags": [
+        "中文",
+        "效率",
+        "本地化"
+      ]
     },
     {
       "name": "StackBlitz",
@@ -52,7 +73,11 @@
       "description": "雲端即開即寫的前端開發環境，支援 Vite/Next 等。",
       "href": "https://stackblitz.com/",
       "category": "AI寫程式工具",
-      "tags": ["前端", "線上IDE", "快速實驗"]
+      "tags": [
+        "前端",
+        "線上IDE",
+        "快速實驗"
+      ]
     },
     {
       "name": "Codesandbox",
@@ -60,7 +85,11 @@
       "description": "線上沙盒環境，快速建立 React/Vue 專案範本。",
       "href": "https://codesandbox.io/",
       "category": "AI寫程式工具",
-      "tags": ["沙盒", "模板", "原型"]
+      "tags": [
+        "沙盒",
+        "模板",
+        "原型"
+      ]
     },
     {
       "name": "GitHub Codespaces",
@@ -68,7 +97,10 @@
       "description": "雲端 VS Code 開發環境，整合 GitHub 專案。",
       "href": "https://github.com/features/codespaces",
       "category": "AI寫程式工具",
-      "tags": ["雲端IDE", "GitHub"]
+      "tags": [
+        "雲端IDE",
+        "GitHub"
+      ]
     },
     {
       "name": "Zeabur",
@@ -76,7 +108,11 @@
       "description": "一鍵自動化部署，支援 Node/Static/DB 等服務。",
       "href": "https://zeabur.com",
       "category": "部署平台",
-      "tags": ["Serverless", "自動部署", "Logs"]
+      "tags": [
+        "Serverless",
+        "自動部署",
+        "Logs"
+      ]
     },
     {
       "name": "Vercel",
@@ -84,7 +120,11 @@
       "description": "前端友善的 Serverless 平台，Next.js 官方好夥伴。",
       "href": "https://vercel.com/",
       "category": "部署平台",
-      "tags": ["Serverless", "Edge", "Next.js"]
+      "tags": [
+        "Serverless",
+        "Edge",
+        "Next.js"
+      ]
     },
     {
       "name": "Netlify",
@@ -92,8 +132,11 @@
       "description": "靜態網站與函式部署，CI/CD 內建。",
       "href": "https://www.netlify.com/",
       "category": "部署平台",
-      "tags": ["靜態", "Functions", "CI/CD"]
+      "tags": [
+        "靜態",
+        "Functions",
+        "CI/CD"
+      ]
     }
   ]
 }
-
