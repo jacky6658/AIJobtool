@@ -24,7 +24,7 @@ async function sha256(text: string) {
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
 }
 // TODO: 把下面這個哈希換成你的（例：aijob-dev-2025 的 SHA-256）
-const ADMIN_HASH = "replace_with_your_sha256_hash";
+const ADMIN_HASH = (import.meta.env.VITE_ADMIN_HASH as string) || "";
 
 /** ========= Fallback（catalog.json 載入失敗時使用） ========= */
 const fallbackCatalog: Catalog = {
