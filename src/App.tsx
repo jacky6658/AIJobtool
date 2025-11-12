@@ -144,7 +144,7 @@ const AppLauncherDemo: React.FC = () => {
       name: "Manus",
       icon: "/images/manus.png", // 或 /images/manus-icon.webp
       description: "高效能中文 AI 對話系統，支援多場景應用。",
-      href: "https://manus.im/",
+      href: "https://manus.im/invitation/TOWQQUHBWED1",
       category: "AI對話",
       tags: ["中文", "效率", "本地化"],
     },
