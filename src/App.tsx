@@ -27,6 +27,9 @@ async function sha256Hex(text: string) {
 /** 從環境變數讀取目標雜湊（在 Zeabur 設定 VITE_ADMIN_HASH） */
 const ADMIN_HASH = (import.meta.env.VITE_ADMIN_HASH as string) || "";
 
+/** 從環境變數讀取後端 API endpoint（可選，用於自動上傳 catalog.json） */
+const CATALOG_API_ENDPOINT = (import.meta.env.VITE_CATALOG_API_ENDPOINT as string) || "";
+
 /** ========= Fallback（catalog.json 載入失敗時使用） ========= */
 const fallbackCatalog: Catalog = {
   categories: ["AI智能體", "AI對話", "AI寫程式工具", "部署平台"],
@@ -179,38 +182,86 @@ const AppLauncherDemo: React.FC = () => {
           }
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        // 如果公開 catalog.json 載入失敗，檢查是否有 Admin 的草稿版本
+        try {
+          const adminDraft = localStorage.getItem("aijob-admin-catalog-draft");
+          if (adminDraft) {
+            const parsed = JSON.parse(adminDraft);
+            if (Array.isArray(parsed.categories) && Array.isArray(parsed.apps)) {
+              setCatalog(parsed);
+              if (!parsed.categories.includes(activeCategory)) {
+                setActiveCategory(parsed.categories[0] || "AI智能體");
+              }
+            }
+          }
+        } catch {}
+      });
 
     // Admin：1) localStorage 已登入 2) #admin=密語 3) #logout=1
-    const stored = localStorage.getItem("aijob-admin-hash");
-    if (stored && ADMIN_HASH && stored === ADMIN_HASH) {
-      setIsAdmin(true);
-    }
-
-    const hash = window.location.hash || "";
-    const loginMatch = hash.match(/#admin=([^&]+)/i);
-    const logout = /#logout=1/i.test(hash);
-
-    const clearHash = () =>
-      window.history.replaceState(null, "", window.location.pathname + window.location.search);
-
-    (async () => {
-      if (logout) {
-        try { localStorage.removeItem("aijob-admin-hash"); } catch {}
-        setIsAdmin(false);
-        clearHash();
-        return;
-      }
-      if (loginMatch && ADMIN_HASH) {
-        const raw = decodeURIComponent(loginMatch[1]);
-        const digest = await sha256Hex(raw);
-        if (digest === ADMIN_HASH) {
-          try { localStorage.setItem("aijob-admin-hash", ADMIN_HASH); } catch {}
-          setIsAdmin(true);
+    // 只有在 ADMIN_HASH 有設定時才啟用 Admin 功能
+    if (!ADMIN_HASH || ADMIN_HASH.trim() === "") {
+      // 如果環境變數未設定，清除任何現有的登入狀態
+      try { 
+        localStorage.removeItem("aijob-admin-hash");
+        localStorage.removeItem("aijob-admin-secret");
+      } catch {}
+      setIsAdmin(false);
+    } else {
+      // 檢查 localStorage 中的登入狀態
+      const stored = localStorage.getItem("aijob-admin-hash");
+      if (stored && stored === ADMIN_HASH) {
+        setIsAdmin(true);
+      } else {
+        // 如果 localStorage 中的值與環境變數不符，清除它
+        if (stored) {
+          try { 
+            localStorage.removeItem("aijob-admin-hash");
+            localStorage.removeItem("aijob-admin-secret");
+          } catch {}
         }
-        clearHash();
+        setIsAdmin(false);
       }
-    })();
+
+      const hash = window.location.hash || "";
+      const loginMatch = hash.match(/#admin=([^&]+)/i);
+      const logout = /#logout=1/i.test(hash);
+
+      const clearHash = () =>
+        window.history.replaceState(null, "", window.location.pathname + window.location.search);
+
+      (async () => {
+        if (logout) {
+          try { 
+            localStorage.removeItem("aijob-admin-hash");
+            localStorage.removeItem("aijob-admin-secret");
+          } catch {}
+          setIsAdmin(false);
+          clearHash();
+          return;
+        }
+        if (loginMatch) {
+          const raw = decodeURIComponent(loginMatch[1]);
+          const digest = await sha256Hex(raw);
+          if (digest === ADMIN_HASH) {
+            try { 
+              localStorage.setItem("aijob-admin-hash", ADMIN_HASH);
+              // 儲存原始密碼（用於 API 授權，簡單 base64 編碼）
+              localStorage.setItem("aijob-admin-secret", btoa(raw));
+            } catch {}
+            setIsAdmin(true);
+          } else {
+            // 密碼錯誤，確保登出狀態
+            try { 
+              localStorage.removeItem("aijob-admin-hash");
+              localStorage.removeItem("aijob-admin-secret");
+            } catch {}
+            setIsAdmin(false);
+          }
+          clearHash();
+        }
+      })();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -240,12 +291,28 @@ const AppLauncherDemo: React.FC = () => {
   };
 
   /** ====== 刪除（只有 Admin 可對公開 catalog 做暫存刪除） ====== */
-  const deleteApp = (app: App) => {
+  const deleteApp = async (app: App) => {
     if (!isAdmin) return;
-    if (!window.confirm(`確定刪除（公開）「${app.name}」？匯出後覆蓋 catalog.json 才會全站生效`)) return;
-    setCatalog(prev => ({ ...prev, apps: prev.apps.filter(a => !(a.name === app.name && a.href === app.href)) }));
+    if (!window.confirm(`確定刪除「${app.name}」？`)) return;
+    
+    const newCatalog = {
+      ...catalog,
+      apps: catalog.apps.filter(a => !(a.name === app.name && a.href === app.href))
+    };
+    setCatalog(newCatalog);
     setFavorites(prev => prev.filter(n => n !== app.name));
-    showToast("已刪除（公開草稿）");
+    
+    // 自動儲存到 localStorage
+    saveCatalogDraft(newCatalog);
+    
+    // 嘗試自動上傳到後端 API
+    const uploaded = await uploadCatalogToAPI(newCatalog);
+    
+    if (uploaded) {
+      showToast("已刪除並自動上傳到伺服器 ✓");
+    } else {
+      showToast("已刪除（草稿）• 請匯出 catalog.json 並上傳到 public/ 目錄");
+    }
   };
 
   /** ====== 篩選 ====== */
@@ -262,14 +329,90 @@ const AppLauncherDemo: React.FC = () => {
     apps.filter(a => a.category === activeCategory && a.tags).flatMap(a => a.tags as string[])
   ));
 
+  /** ====== 自動儲存 catalog 到 localStorage（Admin 專用） ====== */
+  const saveCatalogDraft = (newCatalog: Catalog) => {
+    if (!isAdmin) return;
+    try {
+      localStorage.setItem("aijob-admin-catalog-draft", JSON.stringify(newCatalog));
+    } catch (error) {
+      console.error("儲存草稿失敗:", error);
+    }
+  };
+
+  /** ====== 自動上傳 catalog 到後端 API ====== */
+  const uploadCatalogToAPI = async (catalogData: Catalog): Promise<boolean> => {
+    // 如果沒有設定完整 URL，使用相對路徑（同一個服務）
+    let apiEndpoint = CATALOG_API_ENDPOINT;
+    if (!apiEndpoint || apiEndpoint.trim() === "") {
+      return false; // 沒有設定 API endpoint，跳過上傳
+    }
+    
+    // 如果是相對路徑，補上當前域名
+    if (apiEndpoint.startsWith('/')) {
+      apiEndpoint = `${window.location.origin}${apiEndpoint}`;
+    }
+
+    // 取得原始密碼（用於 API 授權）
+    let adminSecret = "";
+    try {
+      const encoded = localStorage.getItem("aijob-admin-secret");
+      if (encoded) {
+        adminSecret = atob(encoded);
+      }
+    } catch (error) {
+      console.error("讀取 Admin 密碼失敗:", error);
+      return false;
+    }
+
+    if (!adminSecret) {
+      console.warn("無法取得 Admin 密碼，跳過 API 上傳");
+      return false;
+    }
+
+    try {
+      const response = await fetch(apiEndpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${adminSecret}`,
+        },
+        body: JSON.stringify(catalogData),
+      });
+
+      if (response.ok) {
+        return true;
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.error("上傳失敗:", response.status, response.statusText, errorData);
+        return false;
+      }
+    } catch (error) {
+      console.error("上傳 catalog 到 API 失敗:", error);
+      return false;
+    }
+  };
+
   /** ====== Admin：新增分類／匯出 catalog.json ====== */
-  const addCategory = () => {
+  const addCategory = async () => {
     const n = newCategory.trim();
     if (!n) return;
     if (catalog.categories.includes(n)) return alert("已存在相同分類");
-    setCatalog(prev => ({ ...prev, categories: [...prev.categories, n] }));
+    
+    const newCatalog = { ...catalog, categories: [...catalog.categories, n] };
+    setCatalog(newCatalog);
     setNewCategory("");
-    showToast("已新增分類（公開草稿）");
+    
+    // 自動儲存到 localStorage
+    saveCatalogDraft(newCatalog);
+    
+    // 嘗試自動上傳到後端 API
+    const uploaded = await uploadCatalogToAPI(newCatalog);
+    
+    if (uploaded) {
+      showToast("已新增分類並自動上傳到伺服器 ✓");
+    } else {
+      showToast("已新增分類（草稿）• 請匯出 catalog.json 並上傳到 public/ 目錄");
+    }
   };
 
   const exportCatalog = () => {
@@ -278,6 +421,7 @@ const AppLauncherDemo: React.FC = () => {
     a.href = URL.createObjectURL(blob);
     a.download = "catalog.json";
     a.click();
+    showToast("已下載 catalog.json • 請上傳到 public/ 目錄並重新部署");
   };
 
   /** ====== UI ====== */
@@ -345,25 +489,37 @@ const AppLauncherDemo: React.FC = () => {
           {/* 管理工具（只有 Admin 顯示） */}
           {isAdmin && (
             <div className="mt-4 space-y-2">
+              <div className="rounded-lg bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 p-2 mb-2">
+                <div className="text-[10px] text-indigo-700 dark:text-indigo-300 leading-relaxed">
+                  <div className="font-semibold mb-1">📝 管理說明：</div>
+                  <div>• 新增內容會自動儲存（此瀏覽器可見）</div>
+                  {CATALOG_API_ENDPOINT ? (
+                    <div className="text-green-600 dark:text-green-400">• 已設定 API，會自動上傳 ✓</div>
+                  ) : (
+                    <div className="text-amber-600 dark:text-amber-400">• 未設定 API，需手動匯出上傳</div>
+                  )}
+                </div>
+              </div>
+
               <button
                 type="button"
                 onClick={() => setCreateOpen(true)}
                 className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 text-white text-sm font-medium px-3 py-2 shadow hover:bg-indigo-700 transition-colors">
-                ➕ 新增應用（公開草稿）
+                ➕ 新增應用程式
               </button>
 
               <div className="rounded-xl border p-2">
-                <div className="text-xs mb-1 text-slate-500">新增分類（公開草稿）</div>
+                <div className="text-xs mb-1 text-slate-500 dark:text-slate-400">新增分類</div>
                 <div className="flex gap-2">
                   <input
-                    className="flex-1 rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                    className="flex-1 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 px-2 py-1 text-sm"
                     placeholder="輸入新分類名稱"
                     value={newCategory}
                     onChange={(e)=>setNewCategory(e.target.value)}
                   />
                   <button
                     onClick={addCategory}
-                    className="rounded-lg bg-slate-900 text-white text-xs px-3 py-1.5 hover:bg-black/80"
+                    className="rounded-lg bg-slate-900 dark:bg-slate-700 text-white text-xs px-3 py-1.5 hover:bg-black/80 dark:hover:bg-slate-600"
                   >
                     新增
                   </button>
@@ -373,13 +529,22 @@ const AppLauncherDemo: React.FC = () => {
               <button
                 type="button"
                 onClick={exportCatalog}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-xl border text-slate-700 text-xs font-medium px-3 py-2 hover:bg-slate-50">
+                className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-medium px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-800">
                 ⬇️ 匯出 catalog.json
               </button>
+              <div className="text-[10px] text-slate-400 dark:text-slate-500 px-1">
+                匯出後上傳到 <code className="bg-slate-100 dark:bg-slate-800 px-1 rounded">public/catalog.json</code> 並重新部署
+              </div>
 
               <button
                 type="button"
-                onClick={() => { try { localStorage.removeItem("aijob-admin-hash"); } catch {}; setIsAdmin(false); }}
+                onClick={() => { 
+                  try { 
+                    localStorage.removeItem("aijob-admin-hash");
+                    localStorage.removeItem("aijob-admin-secret");
+                  } catch {}; 
+                  setIsAdmin(false); 
+                }}
                 className="w-full text-[11px] text-slate-400 hover:text-slate-200 underline">
                 退出管理模式
               </button>
@@ -601,10 +766,22 @@ const AppLauncherDemo: React.FC = () => {
         <CreateAppModal
           categories={catalog.categories}
           onClose={() => setCreateOpen(false)}
-          onCreate={(app) => {
-            setCatalog(prev => ({ ...prev, apps: [...prev.apps, app] }));
+          onCreate={async (app) => {
+            const newCatalog = { ...catalog, apps: [...catalog.apps, app] };
+            setCatalog(newCatalog);
             setCreateOpen(false);
-            showToast("已新增（公開草稿）");
+            
+            // 自動儲存到 localStorage
+            saveCatalogDraft(newCatalog);
+            
+            // 嘗試自動上傳到後端 API
+            const uploaded = await uploadCatalogToAPI(newCatalog);
+            
+            if (uploaded) {
+              showToast("已新增並自動上傳到伺服器 ✓");
+            } else {
+              showToast("已新增（草稿）• 請匯出 catalog.json 並上傳到 public/ 目錄");
+            }
           }}
         />
       )}
@@ -649,6 +826,7 @@ function CreateAppModal({
   const [description, setDescription] = React.useState("");
   const [tags, setTags] = React.useState("");
   const [preview, setPreview] = React.useState<string | null>(null);
+  const [isFetchingLogo, setIsFetchingLogo] = React.useState(false);
 
   const canSave = name.trim() && href.trim();
 
@@ -660,6 +838,91 @@ function CreateAppModal({
     const dataUrl = await fileToDataUrl(f);
     setIcon(dataUrl);
     setPreview(dataUrl);
+  };
+
+  /** ========= 從 URL 自動抓取 Logo ========= */
+  const fetchLogoFromUrl = async (url: string) => {
+    if (!url || !url.trim()) return null;
+    
+    try {
+      // 解析 URL 取得域名
+      let domain = "";
+      try {
+        const urlObj = new URL(url.startsWith("http") ? url : `https://${url}`);
+        domain = urlObj.hostname;
+      } catch {
+        return null;
+      }
+
+      // 方法 1: 使用 Google 的 favicon 服務（最可靠，無 CORS 問題）
+      const googleFaviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+      
+      // 測試圖片是否存在
+      const testImage = (imgUrl: string): Promise<boolean> => {
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.onload = () => resolve(true);
+          img.onerror = () => resolve(false);
+          img.src = imgUrl;
+          // 設定超時
+          setTimeout(() => resolve(false), 3000);
+        });
+      };
+
+      // 先嘗試 Google favicon 服務
+      const googleWorks = await testImage(googleFaviconUrl);
+      if (googleWorks) {
+        return googleFaviconUrl;
+      }
+
+      // 方法 2: 嘗試直接獲取 favicon.ico
+      try {
+        const urlObj = new URL(url.startsWith("http") ? url : `https://${url}`);
+        const faviconUrl = `${urlObj.origin}/favicon.ico`;
+        const faviconWorks = await testImage(faviconUrl);
+        if (faviconWorks) {
+          return faviconUrl;
+        }
+      } catch {}
+
+      // 方法 3: 嘗試解析 HTML 中的 favicon（需要代理或 CORS，這裡先不實作）
+      // 因為瀏覽器 CORS 限制，無法直接 fetch 其他網站的 HTML
+
+      return null;
+    } catch (error) {
+      console.error("抓取 Logo 失敗:", error);
+      return null;
+    }
+  };
+
+  const handleFetchLogo = async () => {
+    if (!href || !href.trim()) {
+      alert("請先輸入 URL");
+      return;
+    }
+
+    setIsFetchingLogo(true);
+    try {
+      const logoUrl = await fetchLogoFromUrl(href);
+      if (logoUrl) {
+        setIcon(logoUrl);
+        setPreview(logoUrl);
+        // 如果名稱還沒填，嘗試從 URL 推斷
+        if (!name.trim()) {
+          try {
+            const urlObj = new URL(href.startsWith("http") ? href : `https://${href}`);
+            const domainName = urlObj.hostname.replace("www.", "").split(".")[0];
+            setName(domainName.charAt(0).toUpperCase() + domainName.slice(1));
+          } catch {}
+        }
+      } else {
+        alert("無法自動抓取該網站的 Logo，請手動輸入或上傳圖片");
+      }
+    } catch (error) {
+      alert("抓取 Logo 時發生錯誤，請手動輸入或上傳圖片");
+    } finally {
+      setIsFetchingLogo(false);
+    }
   };
 
   return (
@@ -683,12 +946,27 @@ function CreateAppModal({
 
           <label className="text-sm">
             連結（URL）
-            <input
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              placeholder="https://example.com"
-              value={href}
-              onChange={(e) => setHref(e.target.value)}
-            />
+            <div className="mt-1 flex gap-2">
+              <input
+                className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                placeholder="https://example.com"
+                value={href}
+                onChange={(e) => setHref(e.target.value)}
+              />
+              <button
+                type="button"
+                onClick={handleFetchLogo}
+                disabled={isFetchingLogo || !href.trim()}
+                className={`rounded-lg px-4 py-2 text-xs font-medium transition-colors ${
+                  isFetchingLogo || !href.trim()
+                    ? "bg-slate-200 text-slate-400 cursor-not-allowed"
+                    : "bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
+                }`}
+                title="自動從 URL 抓取網站 Logo"
+              >
+                {isFetchingLogo ? "抓取中..." : "🔍 自動抓取 Logo"}
+              </button>
+            </div>
           </label>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -713,11 +991,24 @@ function CreateAppModal({
             </label>
           </div>
 
-          {(preview || icon.startsWith("data:image")) && (
+          {(preview || icon.startsWith("data:image") || icon.startsWith("http")) && (
             <div className="mt-1">
               <div className="text-xs text-slate-500 mb-1">預覽：</div>
-              <div className="h-16 w-16 rounded-xl overflow-hidden bg-slate-100 flex items-center justify-center">
-                <img src={preview || icon} alt="預覽" className="h-full w-full object-contain" />
+              <div className="h-16 w-16 rounded-xl overflow-hidden bg-slate-100 flex items-center justify-center border border-slate-200">
+                <img 
+                  src={preview || icon} 
+                  alt="預覽" 
+                  className="h-full w-full object-contain"
+                  onError={(e) => {
+                    // 如果圖片載入失敗，顯示預設圖示
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = "none";
+                    const parent = target.parentElement;
+                    if (parent) {
+                      parent.innerHTML = '<span class="text-2xl">🧩</span>';
+                    }
+                  }}
+                />
               </div>
             </div>
           )}
