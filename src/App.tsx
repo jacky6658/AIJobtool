@@ -515,7 +515,7 @@ const AppLauncherDemo: React.FC = () => {
                     className="flex-1 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 px-2 py-1 text-sm"
                     placeholder="輸入新分類名稱"
                     value={newCategory}
-                    onChange={(e)=>setNewCategory(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>)=>setNewCategory(e.target.value)}
                   />
                   <button
                     onClick={addCategory}
@@ -586,7 +586,7 @@ const AppLauncherDemo: React.FC = () => {
                   <input
                     type="text"
                     value={keyword}
-                    onChange={(e) => setKeyword(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setKeyword(e.target.value)}
                     placeholder="搜尋工具名稱或關鍵字"
                     className={`w-full rounded-xl border py-1.5 pl-8 pr-3 text-xs sm:text-sm shadow-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 ${
                       isDark ? "border-slate-700 bg-slate-900/80 text-slate-100 placeholder:text-slate-500"
@@ -940,7 +940,7 @@ function CreateAppModal({
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
               placeholder="例如：我的工具"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
             />
           </label>
 
@@ -951,7 +951,7 @@ function CreateAppModal({
                 className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
                 placeholder="https://example.com"
                 value={href}
-                onChange={(e) => setHref(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setHref(e.target.value)}
               />
               <button
                 type="button"
@@ -976,7 +976,7 @@ function CreateAppModal({
                 className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                 placeholder="🧩 或 /images/myicon.png 或 https://..."
                 value={icon}
-                onChange={(e) => { setIcon(e.target.value); setPreview(null); }}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setIcon(e.target.value); setPreview(null); }}
               />
             </label>
 
@@ -999,9 +999,9 @@ function CreateAppModal({
                   src={preview || icon} 
                   alt="預覽" 
                   className="h-full w-full object-contain"
-                  onError={(e) => {
+                  onError={(e: React.SyntheticEvent<HTMLImageElement, Event>) => {
                     // 如果圖片載入失敗，顯示預設圖示
-                    const target = e.target as HTMLImageElement;
+                    const target = e.currentTarget;
                     target.style.display = "none";
                     const parent = target.parentElement;
                     if (parent) {
@@ -1018,7 +1018,7 @@ function CreateAppModal({
             <select
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
               value={category}
-              onChange={(e) => setCategory(e.target.value as Category)}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setCategory(e.target.value as Category)}
             >
               {categories.map((c) => (<option key={c} value={c}>{c}</option>))}
             </select>
@@ -1031,7 +1031,7 @@ function CreateAppModal({
               rows={3}
               placeholder="這個工具可以幫你做什麼？"
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setDescription(e.target.value)}
             />
           </label>
 
@@ -1041,7 +1041,7 @@ function CreateAppModal({
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
               placeholder="例如：中文, 高效率"
               value={tags}
-              onChange={(e) => setTags(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTags(e.target.value)}
             />
           </label>
         </div>
