@@ -154,7 +154,7 @@ const AppLauncherDemo: React.FC = () => {
       name: "Vercel",
       icon: "▲",
       description: "前端友善的 Serverless 平台，Next.js 官方好夥伴。",
-      href: "https://vercel.com/",
+      href: "https://zeabur.com/referral?referralCode=aiagentg888",
       category: "部署平台",
       tags: ["Serverless", "Edge", "Next.js"],
     },
