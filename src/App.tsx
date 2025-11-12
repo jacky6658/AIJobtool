@@ -4,8 +4,8 @@ import React from "react";
 type Category = string;
 
 type App = {
-  name: string;
-  icon: string; // emoji、/images/xxx.png、http(s) 或 data:image/... base64
+  name: string;                // 顯示名稱
+  icon: string;                // emoji、/images/xxx.png、http(s) 或 data:image/... base64
   description: string;
   href: string;
   category: Category;
@@ -17,13 +17,14 @@ type Catalog = {
   apps: App[];
 };
 
-/** ========= 簡易雜湊：把你的管理密碼先離線算出 SHA-256，再貼到 ADMIN_HASH ========= */
-async function sha256(text: string) {
+/** ========= SHA-256（把密語轉 hex） ========= */
+async function sha256Hex(text: string) {
   const enc = new TextEncoder().encode(text);
   const buf = await crypto.subtle.digest("SHA-256", enc);
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
 }
-// TODO: 把下面這個哈希換成你的（例：aijob-dev-2025 的 SHA-256）
+
+/** 從環境變數讀取目標雜湊（在 Zeabur 設定 VITE_ADMIN_HASH） */
 const ADMIN_HASH = (import.meta.env.VITE_ADMIN_HASH as string) || "";
 
 /** ========= Fallback（catalog.json 載入失敗時使用） ========= */
@@ -142,16 +143,16 @@ const AppLauncherDemo: React.FC = () => {
   const [toast, setToast] = React.useState<string | null>(null);
   const toastTimeoutRef = React.useRef<number | null>(null);
 
-  // Admin（只有 ?admin=1 + 密碼正確 才為 true）
+  // Admin 狀態 & 管理用暫存
   const [isAdmin, setIsAdmin] = React.useState<boolean>(false);
-  // Admin：新增分類暫存
+  const [createOpen, setCreateOpen] = React.useState<boolean>(false);
   const [newCategory, setNewCategory] = React.useState<string>("");
 
   const isDark = theme === "dark";
 
-  /** ====== 初始化：讀 localStorage（收藏/主題）、載入 catalog.json、admin 模式 ====== */
+  /** ====== 初始化：收藏/主題、本機清理、載 catalog、Admin 登入/登出 ====== */
   React.useEffect(() => {
-    // 1) localStorage（收藏 / 主題）
+    // 收藏 / 主題
     try {
       const rawFav = localStorage.getItem("aijob-tool-favorites");
       if (rawFav) {
@@ -164,12 +165,10 @@ const AppLauncherDemo: React.FC = () => {
       }
     } catch {}
 
-    // 2) 清掉舊版「本機自訂 App」資料
-    try {
-      localStorage.removeItem("aijob-custom-apps");
-    } catch {}
+    // 清除舊版本機自訂資料（統一走公開 catalog）
+    try { localStorage.removeItem("aijob-custom-apps"); } catch {}
 
-    // 3) 載入公開 catalog.json（無則沿用 fallback）
+    // 載入公開 catalog.json
     fetch("/catalog.json", { cache: "no-store" })
       .then(r => (r.ok ? r.json() : Promise.reject()))
       .then((data: Catalog) => {
@@ -182,36 +181,51 @@ const AppLauncherDemo: React.FC = () => {
       })
       .catch(() => {});
 
-    // 4) 檢查 admin 入口
-    const url = new URL(window.location.href);
-    if (url.searchParams.get("admin") === "1") {
-      const pwd = window.prompt("請輸入管理密碼");
-      if (pwd) {
-        sha256(pwd).then(h => {
-          if (h === ADMIN_HASH) setIsAdmin(true);
-          else alert("密碼錯誤");
-        });
-      }
+    // Admin：1) localStorage 已登入 2) #admin=密語 3) #logout=1
+    const stored = localStorage.getItem("aijob-admin-hash");
+    if (stored && ADMIN_HASH && stored === ADMIN_HASH) {
+      setIsAdmin(true);
     }
+
+    const hash = window.location.hash || "";
+    const loginMatch = hash.match(/#admin=([^&]+)/i);
+    const logout = /#logout=1/i.test(hash);
+
+    const clearHash = () =>
+      window.history.replaceState(null, "", window.location.pathname + window.location.search);
+
+    (async () => {
+      if (logout) {
+        try { localStorage.removeItem("aijob-admin-hash"); } catch {}
+        setIsAdmin(false);
+        clearHash();
+        return;
+      }
+      if (loginMatch && ADMIN_HASH) {
+        const raw = decodeURIComponent(loginMatch[1]);
+        const digest = await sha256Hex(raw);
+        if (digest === ADMIN_HASH) {
+          try { localStorage.setItem("aijob-admin-hash", ADMIN_HASH); } catch {}
+          setIsAdmin(true);
+        }
+        clearHash();
+      }
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /** ====== 主題變更時儲存 ====== */
+  /** ====== 主題變更儲存 ====== */
   React.useEffect(() => {
-    try {
-      localStorage.setItem("aijob-theme", theme);
-    } catch {}
+    try { localStorage.setItem("aijob-theme", theme); } catch {}
   }, [theme]);
 
-  /** ====== 只用公開 catalog（移除本機自訂擴充） ====== */
+  /** ====== 只用公開 catalog ====== */
   const apps: App[] = React.useMemo(() => catalog.apps, [catalog.apps]);
 
   /** ====== 收藏 ====== */
   const saveFavorites = (next: string[]) => {
     setFavorites(next);
-    try {
-      localStorage.setItem("aijob-tool-favorites", JSON.stringify(next));
-    } catch {}
+    try { localStorage.setItem("aijob-tool-favorites", JSON.stringify(next)); } catch {}
   };
   const showToast = (message: string) => {
     setToast(message);
@@ -220,12 +234,12 @@ const AppLauncherDemo: React.FC = () => {
   };
   const toggleFavorite = (app: App) => {
     const isFavorite = favorites.includes(app.name);
-    const next = isFavorite ? favorites.filter((n) => n !== app.name) : [...favorites, app.name];
+    const next = isFavorite ? favorites.filter(n => n !== app.name) : [...favorites, app.name];
     saveFavorites(next);
     showToast(isFavorite ? "已從收藏移除" : "已加入收藏");
   };
 
-  /** ====== 刪除（只有 admin 可以刪公開 catalog） ====== */
+  /** ====== 刪除（只有 Admin 可對公開 catalog 做暫存刪除） ====== */
   const deleteApp = (app: App) => {
     if (!isAdmin) return;
     if (!window.confirm(`確定刪除（公開）「${app.name}」？匯出後覆蓋 catalog.json 才會全站生效`)) return;
@@ -244,24 +258,15 @@ const AppLauncherDemo: React.FC = () => {
     return text.includes(normalizedKeyword);
   });
   const favoriteApps = apps.filter((app) => favorites.includes(app.name));
-  const availableTags = Array.from(
-    new Set(
-      apps
-        .filter((app) => app.category === activeCategory && app.tags)
-        .flatMap((app) => app.tags as string[])
-    )
-  );
+  const availableTags = Array.from(new Set(
+    apps.filter(a => a.category === activeCategory && a.tags).flatMap(a => a.tags as string[])
+  ));
 
-  /** ====== Admin：新增分類 / 匯出 catalog.json ====== */
-  const [createOpen, setCreateOpen] = React.useState<boolean>(false);
-
+  /** ====== Admin：新增分類／匯出 catalog.json ====== */
   const addCategory = () => {
     const n = newCategory.trim();
     if (!n) return;
-    if (catalog.categories.includes(n)) {
-      alert("已存在相同分類");
-      return;
-    }
+    if (catalog.categories.includes(n)) return alert("已存在相同分類");
     setCatalog(prev => ({ ...prev, categories: [...prev.categories, n] }));
     setNewCategory("");
     showToast("已新增分類（公開草稿）");
@@ -281,16 +286,13 @@ const AppLauncherDemo: React.FC = () => {
                            : "min-h-screen bg-slate-50 text-slate-900 relative overflow-hidden"}>
       {/* 背景動態 */}
       <div className="pointer-events-none absolute inset-0">
-        <div className={`absolute -top-24 -right-24 h-72 w-72 rounded-full blur-3xl opacity-70 animate-pulse ${
-          isDark ? "bg-indigo-900/40" : "bg-indigo-100"}`} />
-        <div className={`absolute -bottom-32 -left-20 h-80 w-80 rounded-full blur-3xl opacity-70 animate-pulse ${
-          isDark ? "bg-sky-900/40" : "bg-sky-100"}`} />
+        <div className={`absolute -top-24 -right-24 h-72 w-72 rounded-full blur-3xl opacity-70 animate-pulse ${isDark ? "bg-indigo-900/40" : "bg-indigo-100"}`} />
+        <div className={`absolute -bottom-32 -left-20 h-80 w-80 rounded-full blur-3xl opacity-70 animate-pulse ${isDark ? "bg-sky-900/40" : "bg-sky-100"}`} />
       </div>
 
       {/* 行動版頂欄 */}
       <div className={`fixed top-0 left-0 right-0 z-30 flex items-center justify-between border-b px-4 py-3 md:hidden ${
-        isDark ? "bg-slate-900/90 border-slate-800 text-slate-100"
-               : "bg-white/90 border-slate-200 text-slate-800 backdrop-blur-sm"}`}>
+        isDark ? "bg-slate-900/90 border-slate-800 text-slate-100" : "bg-white/90 border-slate-200 text-slate-800 backdrop-blur-sm"}`}>
         <button onClick={() => setSidebarOpen(true)} className="text-xl">☰</button>
         <span className="font-semibold text-sm">AIJob 工具庫</span>
         <button onClick={() => setTheme(isDark ? "light" : "dark")} className="text-lg" aria-label="切換主題">
@@ -303,9 +305,8 @@ const AppLauncherDemo: React.FC = () => {
         {/* 側邊欄 */}
         <aside
           className={`fixed md:static z-40 top-0 left-0 bottom-0 md:h-screen w-64 px-4 py-6 flex flex-col transform transition-all duration-200 ease-in-out border-r ${
-            sidebarOpen ? "translate-x-0 opacity-100" : "-translate-x-full opacity-0 md:translate-x-0 md:opacity-100"} ${
-            isDark ? "bg-slate-900/90 border-slate-800 text-slate-100"
-                   : "bg-white/90 border-slate-200/80 text-slate-900 backdrop-blur-sm"}`}>
+            sidebarOpen ? "translate-x-0 opacity-100" : "-translate-x-full opacity-0 md:translate-x-0 md:opacity-100"
+          } ${isDark ? "bg-slate-900/90 border-slate-800 text-slate-100" : "bg-white/90 border-slate-200/80 text-slate-900 backdrop-blur-sm"}`}>
           {/* Logo 區塊 */}
           <div className="mb-8 flex flex-col items-center text-center">
             <img
@@ -334,10 +335,7 @@ const AppLauncherDemo: React.FC = () => {
                     ? "text-slate-300 hover:bg-slate-800/80 hover:text-slate-50"
                     : "text-slate-600 hover:bg-slate-50/80 hover:text-slate-900"}`}>
                 <span className="text-base">
-                  {cat === "AI智能體" ? "🤖"
-                   : cat === "AI對話" ? "💬"
-                   : cat === "AI寫程式工具" ? "🛠️"
-                   : "☁️"}
+                  {cat === "AI智能體" ? "🤖" : cat === "AI對話" ? "💬" : cat === "AI寫程式工具" ? "🛠️" : "☁️"}
                 </span>
                 <span>{cat}</span>
               </button>
@@ -378,6 +376,13 @@ const AppLauncherDemo: React.FC = () => {
                 className="w-full inline-flex items-center justify-center gap-2 rounded-xl border text-slate-700 text-xs font-medium px-3 py-2 hover:bg-slate-50">
                 ⬇️ 匯出 catalog.json
               </button>
+
+              <button
+                type="button"
+                onClick={() => { try { localStorage.removeItem("aijob-admin-hash"); } catch {}; setIsAdmin(false); }}
+                className="w-full text-[11px] text-slate-400 hover:text-slate-200 underline">
+                退出管理模式
+              </button>
             </div>
           )}
 
@@ -392,8 +397,12 @@ const AppLauncherDemo: React.FC = () => {
           </div>
 
           {/* 行動版關閉 */}
-          <button className="md:hidden absolute top-3 right-3 text-slate-400 hover:text-slate-200"
-                  onClick={() => setSidebarOpen(false)}>✕</button>
+          <button
+            className="md:hidden absolute top-3 right-3 text-slate-400 hover:text-slate-200"
+            onClick={() => setSidebarOpen(false)}
+          >
+            ✕
+          </button>
         </aside>
 
         {/* 主內容 */}
@@ -503,9 +512,7 @@ const AppLauncherDemo: React.FC = () => {
 
                       <div
                         className={`relative rounded-[14px] p-4 flex flex-col items-center text-center shadow-sm backdrop-blur-sm ${
-                          isDark
-                            ? "bg-slate-900/90 border border-slate-800"
-                            : "bg-white/95 border border-slate-100"
+                          isDark ? "bg-slate-900/90 border border-slate-800" : "bg-white/95 border border-slate-100"
                         }`}
                       >
                         {/* 收藏 */}
@@ -589,7 +596,7 @@ const AppLauncherDemo: React.FC = () => {
         </div>
       )}
 
-      {/* 新增應用 Modal（只有 Admin；加到 catalog 草稿） */}
+      {/* 新增應用 Modal（只有 Admin；寫入公開 catalog 草稿） */}
       {isAdmin && createOpen && (
         <CreateAppModal
           categories={catalog.categories}
@@ -605,7 +612,7 @@ const AppLauncherDemo: React.FC = () => {
       {/* 收藏提示 */}
       {toast && (
         <div className="fixed bottom-4 right-4 z-50">
-          <div className={`rounded-xl px-3 py-2 text-xs shadow-lg flex items中心 gap-2 ${
+          <div className={`rounded-xl px-3 py-2 text-xs shadow-lg flex items-center gap-2 ${
             isDark ? "bg-slate-900/95 border border-slate-700 text-slate-100" : "bg-white border border-slate-200 text-slate-700"}`}>
             <span>⭐</span>
             <span>{toast}</span>
@@ -666,67 +673,95 @@ function CreateAppModal({
         <div className="grid grid-cols-1 gap-3">
           <label className="text-sm">
             名稱
-            <input className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="例如：我的工具"
-                   value={name} onChange={(e) => setName(e.target.value)} />
+            <input
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              placeholder="例如：我的工具"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
           </label>
 
           <label className="text-sm">
             連結（URL）
-            <input className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="https://example.com"
-                   value={href} onChange={(e) => setHref(e.target.value)} />
+            <input
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              placeholder="https://example.com"
+              value={href}
+              onChange={(e) => setHref(e.target.value)}
+            />
           </label>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <label className="text-sm">
               圖示（文字路徑或 emoji）
-              <input className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                     placeholder="🧩 或 /images/myicon.png 或 https://..."
-                     value={icon}
-                     onChange={(e) => { setIcon(e.target.value); setPreview(null); }} />
+              <input
+                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                placeholder="🧩 或 /images/myicon.png 或 https://..."
+                value={icon}
+                onChange={(e) => { setIcon(e.target.value); setPreview(null); }}
+              />
             </label>
 
             <label className="text-sm">
               或直接上傳圖片
-              <input type="file" accept="image/*"
-                     className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm bg-white"
-                     onChange={onFileChange} />
+              <input
+                type="file"
+                accept="image/*"
+                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm bg-white"
+                onChange={onFileChange}
+              />
             </label>
           </div>
 
-        {(preview || icon.startsWith("data:image")) && (
-          <div className="mt-1">
-            <div className="text-xs text-slate-500 mb-1">預覽：</div>
-            <div className="h-16 w-16 rounded-xl overflow-hidden bg-slate-100 flex items-center justify-center">
-              <img src={preview || icon} alt="預覽" className="h-full w-full object-contain" />
+          {(preview || icon.startsWith("data:image")) && (
+            <div className="mt-1">
+              <div className="text-xs text-slate-500 mb-1">預覽：</div>
+              <div className="h-16 w-16 rounded-xl overflow-hidden bg-slate-100 flex items-center justify-center">
+                <img src={preview || icon} alt="預覽" className="h-full w-full object-contain" />
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
           <label className="text-sm">
             分類
-            <select className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                    value={category} onChange={(e) => setCategory(e.target.value as Category)}>
+            <select
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              value={category}
+              onChange={(e) => setCategory(e.target.value as Category)}
+            >
               {categories.map((c) => (<option key={c} value={c}>{c}</option>))}
             </select>
           </label>
 
           <label className="text-sm">
             簡介
-            <textarea className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" rows={3}
-                      placeholder="這個工具可以幫你做什麼？"
-                      value={description} onChange={(e) => setDescription(e.target.value)} />
+            <textarea
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              rows={3}
+              placeholder="這個工具可以幫你做什麼？"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
           </label>
 
           <label className="text-sm">
             標籤（以逗號分隔）
-            <input className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                   placeholder="例如：中文, 高效率"
-                   value={tags} onChange={(e) => setTags(e.target.value)} />
+            <input
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              placeholder="例如：中文, 高效率"
+              value={tags}
+              onChange={(e) => setTags(e.target.value)}
+            />
           </label>
         </div>
 
         <div className="mt-5 flex justify-end gap-2">
-          <button onClick={onClose} className="rounded-lg border px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">取消</button>
+          <button
+            onClick={onClose}
+            className="rounded-lg border px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"
+          >
+            取消
+          </button>
           <button
             disabled={!canSave}
             onClick={() =>
@@ -739,7 +774,9 @@ function CreateAppModal({
                 tags: tags.split(",").map(t => t.trim()).filter(Boolean),
               })
             }
-            className={`rounded-lg px-4 py-2 text-sm text白 ${canSave ? "bg-indigo-600 hover:bg-indigo-700" : "bg-slate-300 cursor-not-allowed"}`}
+            className={`rounded-lg px-4 py-2 text-sm text-white ${
+              canSave ? "bg-indigo-600 hover:bg-indigo-700" : "bg-slate-300 cursor-not-allowed"
+            }`}
           >
             新增
           </button>
@@ -749,7 +786,7 @@ function CreateAppModal({
   );
 }
 
-/** ========= 小工具：File → DataURL(base64) ========= */
+/** ========= File → DataURL(base64) ========= */
 function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
