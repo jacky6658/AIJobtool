@@ -1,76 +1,35 @@
 import React from "react";
 
-/** ====== 型別 ====== */
-const categories = ["AI智能體", "AI對話", "AI寫程式工具", "部署平台"] as const;
-type Category = (typeof categories)[number];
+/** ========= 型別 ========= */
+type Category = string;
 
 type App = {
   name: string;
-  icon: string;           // 支援 emoji、/images/xxx.png、http(s) 或 data:image/... base64
+  icon: string; // emoji、/images/xxx.png、http(s) 或 data:image/... base64
   description: string;
   href: string;
   category: Category;
   tags?: string[];
 };
 
-/** ====== 主元件 ====== */
-const AppLauncherDemo: React.FC = () => {
-  const [activeCategory, setActiveCategory] = React.useState<Category>("AI智能體");
-  const [selectedApp, setSelectedApp] = React.useState<App | null>(null);
-  const [favorites, setFavorites] = React.useState<string[]>([]);
-  const [keyword, setKeyword] = React.useState<string>("");
-  const [sidebarOpen, setSidebarOpen] = React.useState<boolean>(false);
-  const [theme, setTheme] = React.useState<"light" | "dark">("light");
-  const [activeTag, setActiveTag] = React.useState<string | null>(null);
-  const [toast, setToast] = React.useState<string | null>(null);
-  const toastTimeoutRef = React.useRef<number | null>(null);
+type Catalog = {
+  categories: Category[];
+  apps: App[];
+};
 
-  // ✅ 使用者自訂的 App（由「新增應用」表單建立）
-  const [customApps, setCustomApps] = React.useState<App[]>([]);
-  const [createOpen, setCreateOpen] = React.useState<boolean>(false);
+/** ========= 簡易雜湊：把你的管理密碼先離線算出 SHA-256，再貼到 ADMIN_HASH ========= */
+async function sha256(text: string) {
+  const enc = new TextEncoder().encode(text);
+  const buf = await crypto.subtle.digest("SHA-256", enc);
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+// TODO: 把下面這個哈希換成你的（例：aijob-dev-2025 的 SHA-256）
+const ADMIN_HASH = "replace_with_your_sha256_hash";
 
-  const isDark = theme === "dark";
-
-  /** ====== 初始化：讀取 localStorage ====== */
-  React.useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const rawFav = window.localStorage.getItem("aijob-tool-favorites");
-      if (rawFav) {
-        const parsed = JSON.parse(rawFav);
-        if (Array.isArray(parsed)) setFavorites(parsed);
-      }
-      const storedTheme = window.localStorage.getItem("aijob-theme");
-      if (storedTheme === "light" || storedTheme === "dark") {
-        setTheme(storedTheme as "light" | "dark");
-      }
-      const rawCustom = window.localStorage.getItem("aijob-custom-apps");
-      if (rawCustom) {
-        const list = JSON.parse(rawCustom);
-        if (Array.isArray(list)) setCustomApps(list);
-      }
-    } catch (e) {
-      console.warn("Failed to load from localStorage", e);
-    }
-  }, []);
-
-  /** ====== 當主題 / 自訂 App 變更時，寫回 localStorage ====== */
-  React.useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      window.localStorage.setItem("aijob-theme", theme);
-    } catch {}
-  }, [theme]);
-
-  React.useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      window.localStorage.setItem("aijob-custom-apps", JSON.stringify(customApps));
-    } catch {}
-  }, [customApps]);
-
-  /** ====== 內建 App 清單（你的原本 + 新增兩個分類示範） ====== */
-  const builtins: App[] = [
+/** ========= Fallback（catalog.json 載入失敗時使用） ========= */
+const fallbackCatalog: Catalog = {
+  categories: ["AI智能體", "AI對話", "AI寫程式工具", "部署平台"],
+  apps: [
     // --- AI智能體 ---
     {
       name: "ReelMind短影音智能體",
@@ -92,7 +51,7 @@ const AppLauncherDemo: React.FC = () => {
     // --- AI對話 ---
     {
       name: "GPT",
-      icon: "/images/ChatGPT.png", // 若用 .webp 請改成 /images/ChatGPT.webp
+      icon: "/images/ChatGPT.png",
       description: "使用 OpenAI GPT 系列模型進行智能對話。",
       href: "https://chat.openai.com/",
       category: "AI對話",
@@ -118,7 +77,7 @@ const AppLauncherDemo: React.FC = () => {
     // --- AI寫程式工具 ---
     {
       name: "StackBlitz",
-      icon: "🧪",
+      icon: "🛠️",
       description: "雲端即開即寫的前端開發環境，支援 Vite/Next 等。",
       href: "https://stackblitz.com/",
       category: "AI寫程式工具",
@@ -166,23 +125,96 @@ const AppLauncherDemo: React.FC = () => {
       category: "部署平台",
       tags: ["靜態", "Functions", "CI/CD"],
     },
-  ];
+  ],
+};
 
-  /** ====== 合併 內建 + 自訂 apps ====== */
-  const apps = React.useMemo<App[]>(() => [...builtins, ...customApps], [builtins, customApps]);
+/** ========= 主元件 ========= */
+const AppLauncherDemo: React.FC = () => {
+  const [catalog, setCatalog] = React.useState<Catalog>(fallbackCatalog);
+
+  const [activeCategory, setActiveCategory] = React.useState<string>(fallbackCatalog.categories[0]);
+  const [selectedApp, setSelectedApp] = React.useState<App | null>(null);
+  const [favorites, setFavorites] = React.useState<string[]>([]);
+  const [keyword, setKeyword] = React.useState<string>("");
+  const [sidebarOpen, setSidebarOpen] = React.useState<boolean>(false);
+  const [theme, setTheme] = React.useState<"light" | "dark">("light");
+  const [activeTag, setActiveTag] = React.useState<string | null>(null);
+  const [toast, setToast] = React.useState<string | null>(null);
+  const toastTimeoutRef = React.useRef<number | null>(null);
+
+  // Admin（只有 ?admin=1 + 密碼正確 才為 true）
+  const [isAdmin, setIsAdmin] = React.useState<boolean>(false);
+  // Admin：新增分類暫存
+  const [newCategory, setNewCategory] = React.useState<string>("");
+
+  const isDark = theme === "dark";
+
+  /** ====== 初始化：讀 localStorage（收藏/主題）、載入 catalog.json、admin 模式 ====== */
+  React.useEffect(() => {
+    // 1) localStorage（收藏 / 主題）
+    try {
+      const rawFav = localStorage.getItem("aijob-tool-favorites");
+      if (rawFav) {
+        const parsed = JSON.parse(rawFav);
+        if (Array.isArray(parsed)) setFavorites(parsed);
+      }
+      const storedTheme = localStorage.getItem("aijob-theme");
+      if (storedTheme === "light" || storedTheme === "dark") {
+        setTheme(storedTheme as "light" | "dark");
+      }
+    } catch {}
+
+    // 2) 清掉舊版「本機自訂 App」資料
+    try {
+      localStorage.removeItem("aijob-custom-apps");
+    } catch {}
+
+    // 3) 載入公開 catalog.json（無則沿用 fallback）
+    fetch("/catalog.json", { cache: "no-store" })
+      .then(r => (r.ok ? r.json() : Promise.reject()))
+      .then((data: Catalog) => {
+        if (Array.isArray(data.categories) && Array.isArray(data.apps)) {
+          setCatalog(data);
+          if (!data.categories.includes(activeCategory)) {
+            setActiveCategory(data.categories[0] || "AI智能體");
+          }
+        }
+      })
+      .catch(() => {});
+
+    // 4) 檢查 admin 入口
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("admin") === "1") {
+      const pwd = window.prompt("請輸入管理密碼");
+      if (pwd) {
+        sha256(pwd).then(h => {
+          if (h === ADMIN_HASH) setIsAdmin(true);
+          else alert("密碼錯誤");
+        });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** ====== 主題變更時儲存 ====== */
+  React.useEffect(() => {
+    try {
+      localStorage.setItem("aijob-theme", theme);
+    } catch {}
+  }, [theme]);
+
+  /** ====== 只用公開 catalog（移除本機自訂擴充） ====== */
+  const apps: App[] = React.useMemo(() => catalog.apps, [catalog.apps]);
 
   /** ====== 收藏 ====== */
   const saveFavorites = (next: string[]) => {
     setFavorites(next);
-    if (typeof window !== "undefined") {
-      try {
-        window.localStorage.setItem("aijob-tool-favorites", JSON.stringify(next));
-      } catch {}
-    }
+    try {
+      localStorage.setItem("aijob-tool-favorites", JSON.stringify(next));
+    } catch {}
   };
   const showToast = (message: string) => {
     setToast(message);
-    if (typeof window === "undefined") return;
     if (toastTimeoutRef.current) window.clearTimeout(toastTimeoutRef.current);
     toastTimeoutRef.current = window.setTimeout(() => setToast(null), 1600);
   };
@@ -193,15 +225,13 @@ const AppLauncherDemo: React.FC = () => {
     showToast(isFavorite ? "已從收藏移除" : "已加入收藏");
   };
 
-  /** ====== 刪除自訂 App ====== */
-  const deleteCustomApp = (app: App) => {
-    if (!window.confirm(`確定刪除「${app.name}」？`)) return;
-    setCustomApps((prev) =>
-      prev.filter((x) => !(x.name === app.name && x.href === app.href))
-    );
-    // 同步移除收藏
-    setFavorites((prev) => prev.filter((n) => n !== app.name));
-    showToast("已刪除應用");
+  /** ====== 刪除（只有 admin 可以刪公開 catalog） ====== */
+  const deleteApp = (app: App) => {
+    if (!isAdmin) return;
+    if (!window.confirm(`確定刪除（公開）「${app.name}」？匯出後覆蓋 catalog.json 才會全站生效`)) return;
+    setCatalog(prev => ({ ...prev, apps: prev.apps.filter(a => !(a.name === app.name && a.href === app.href)) }));
+    setFavorites(prev => prev.filter(n => n !== app.name));
+    showToast("已刪除（公開草稿）");
   };
 
   /** ====== 篩選 ====== */
@@ -221,6 +251,29 @@ const AppLauncherDemo: React.FC = () => {
         .flatMap((app) => app.tags as string[])
     )
   );
+
+  /** ====== Admin：新增分類 / 匯出 catalog.json ====== */
+  const [createOpen, setCreateOpen] = React.useState<boolean>(false);
+
+  const addCategory = () => {
+    const n = newCategory.trim();
+    if (!n) return;
+    if (catalog.categories.includes(n)) {
+      alert("已存在相同分類");
+      return;
+    }
+    setCatalog(prev => ({ ...prev, categories: [...prev.categories, n] }));
+    setNewCategory("");
+    showToast("已新增分類（公開草稿）");
+  };
+
+  const exportCatalog = () => {
+    const blob = new Blob([JSON.stringify(catalog, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "catalog.json";
+    a.click();
+  };
 
   /** ====== UI ====== */
   return (
@@ -269,7 +322,7 @@ const AppLauncherDemo: React.FC = () => {
 
           {/* 分類 */}
           <nav className="space-y-1">
-            {categories.map((cat) => (
+            {catalog.categories.map((cat) => (
               <button
                 key={cat}
                 type="button"
@@ -281,24 +334,52 @@ const AppLauncherDemo: React.FC = () => {
                     ? "text-slate-300 hover:bg-slate-800/80 hover:text-slate-50"
                     : "text-slate-600 hover:bg-slate-50/80 hover:text-slate-900"}`}>
                 <span className="text-base">
-                  {cat === "AI智能體" ? "🤖" :
-                   cat === "AI對話" ? "💬" :
-                   cat === "AI寫程式工具" ? "🛠️" : "☁️"}
+                  {cat === "AI智能體" ? "🤖"
+                   : cat === "AI對話" ? "💬"
+                   : cat === "AI寫程式工具" ? "🛠️"
+                   : "☁️"}
                 </span>
                 <span>{cat}</span>
               </button>
             ))}
           </nav>
 
-          {/* 新增應用按鈕 */}
-          <div className="mt-4">
-            <button
-              type="button"
-              onClick={() => setCreateOpen(true)}
-              className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 text-white text-sm font-medium px-3 py-2 shadow hover:bg-indigo-700 transition-colors">
-              ➕ 新增應用
-            </button>
-          </div>
+          {/* 管理工具（只有 Admin 顯示） */}
+          {isAdmin && (
+            <div className="mt-4 space-y-2">
+              <button
+                type="button"
+                onClick={() => setCreateOpen(true)}
+                className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 text-white text-sm font-medium px-3 py-2 shadow hover:bg-indigo-700 transition-colors">
+                ➕ 新增應用（公開草稿）
+              </button>
+
+              <div className="rounded-xl border p-2">
+                <div className="text-xs mb-1 text-slate-500">新增分類（公開草稿）</div>
+                <div className="flex gap-2">
+                  <input
+                    className="flex-1 rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                    placeholder="輸入新分類名稱"
+                    value={newCategory}
+                    onChange={(e)=>setNewCategory(e.target.value)}
+                  />
+                  <button
+                    onClick={addCategory}
+                    className="rounded-lg bg-slate-900 text-white text-xs px-3 py-1.5 hover:bg-black/80"
+                  >
+                    新增
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={exportCatalog}
+                className="w-full inline-flex items-center justify-center gap-2 rounded-xl border text-slate-700 text-xs font-medium px-3 py-2 hover:bg-slate-50">
+                ⬇️ 匯出 catalog.json
+              </button>
+            </div>
+          )}
 
           <div className="mt-auto pt-6 text-xs text-slate-400 border-t border-slate-100/80 dark:border-slate-800">
             <div className="flex items-center justify-between">
@@ -407,10 +488,7 @@ const AppLauncherDemo: React.FC = () => {
               <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
                 {filteredApps.map((app) => {
                   const isFavoriteApp = favorites.includes(app.name);
-                  // 僅自訂 App 顯示刪除鈕：用 name+href 判斷是否存在於 customApps
-                  const isCustom = customApps.some(
-                    (x) => x.name === app.name && x.href === app.href
-                  );
+                  const isCatalogApp = catalog.apps.some(x => x.name === app.name && x.href === app.href);
 
                   return (
                     <div
@@ -430,17 +508,12 @@ const AppLauncherDemo: React.FC = () => {
                             : "bg-white/95 border border-slate-100"
                         }`}
                       >
-                        {/* 收藏按鈕 */}
+                        {/* 收藏 */}
                         <button
                           type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleFavorite(app);
-                          }}
+                          onClick={(e) => { e.stopPropagation(); toggleFavorite(app); }}
                           className={`absolute right-3 top-3 text-lg transition-transform ${
-                            isFavoriteApp
-                              ? "text-yellow-400 scale-110"
-                              : "text-slate-300 hover:text-slate-400"
+                            isFavoriteApp ? "text-yellow-400 scale-110" : "text-slate-300 hover:text-slate-400"
                           }`}
                           aria-label={isFavoriteApp ? "移除收藏" : "加入收藏"}
                           title={isFavoriteApp ? "移除收藏" : "加入收藏"}
@@ -448,14 +521,11 @@ const AppLauncherDemo: React.FC = () => {
                           {isFavoriteApp ? "★" : "☆"}
                         </button>
 
-                        {/* 刪除自訂 App 按鈕（僅自訂的顯示） */}
-                        {isCustom && (
+                        {/* 刪除（只有 Admin 可以刪公開） */}
+                        {isAdmin && isCatalogApp && (
                           <button
                             type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteCustomApp(app);
-                            }}
+                            onClick={(e) => { e.stopPropagation(); deleteApp(app); }}
                             className="absolute left-3 top-3 text-sm text-rose-400 hover:text-rose-500"
                             aria-label="刪除應用"
                             title="刪除應用"
@@ -464,31 +534,18 @@ const AppLauncherDemo: React.FC = () => {
                           </button>
                         )}
 
-                        {/* 圖示：支援 emoji / 路徑 / data URL */}
-                        <div
-                          className={`mb-3 flex h-12 w-12 items-center justify-center rounded-xl ${
-                            isDark ? "bg-slate-800" : "bg-indigo-50"
-                          } overflow-hidden`}
-                        >
+                        {/* 圖示 */}
+                        <div className={`mb-3 flex h-12 w-12 items-center justify-center rounded-xl ${isDark ? "bg-slate-800" : "bg-indigo-50"} overflow-hidden`}>
                           {renderIcon(app.icon, app.name)}
                         </div>
 
-                        <div className="font-semibold mb-1 text-sm">
-                          {app.name}
-                        </div>
-                        <div className="text-[11px] text-indigo-500 mb-2">
-                          {app.category}
-                        </div>
-                        <div className="text-sm text-slate-500 dark:text-slate-400 mb-3">
-                          {app.description}
-                        </div>
+                        <div className="font-semibold mb-1 text-sm">{app.name}</div>
+                        <div className="text-[11px] text-indigo-500 mb-2">{app.category}</div>
+                        <div className="text-sm text-slate-500 dark:text-slate-400 mb-3">{app.description}</div>
                         {app.tags && (
                           <div className="flex flex-wrap justify-center gap-1">
                             {app.tags.map((tag) => (
-                              <span
-                                key={tag}
-                                className="rounded-full bg-sky-100 dark:bg-slate-800/80 px-2 py-0.5 text-[10px] text-black dark:text-slate-400"
-                              >
+                              <span key={tag} className="rounded-full bg-sky-100 dark:bg-slate-800/80 px-2 py-0.5 text-[10px] text-black dark:text-slate-400">
                                 #{tag}
                               </span>
                             ))}
@@ -507,33 +564,15 @@ const AppLauncherDemo: React.FC = () => {
       {/* 詳情 Modal */}
       {selectedApp && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 backdrop-blur-sm">
-          <div
-            className={`relative max-w-md w-full mx-4 rounded-2xl shadow-2xl p-6 ${
-              isDark ? "bg-slate-900 border border-slate-700" : "bg-white"
-            }`}
-          >
-            <button
-              type="button"
-              onClick={() => setSelectedApp(null)}
-              className="absolute right-4 top-4 text-slate-400 hover:text-slate-200 text-sm"
-            >
-              ✕
-            </button>
+          <div className={`relative max-w-md w-full mx-4 rounded-2xl shadow-2xl p-6 ${isDark ? "bg-slate-900 border border-slate-700" : "bg-white"}`}>
+            <button type="button" onClick={() => setSelectedApp(null)} className="absolute right-4 top-4 text-slate-400 hover:text-slate-200 text-sm">✕</button>
             <div className="flex flex-col items-center text-center">
-              <div
-                className={`mb-3 flex h-12 w-12 items-center justify-center rounded-xl ${
-                  isDark ? "bg-slate-800" : "bg-indigo-50"
-                } overflow-hidden`}
-              >
+              <div className={`mb-3 flex h-12 w-12 items-center justify-center rounded-xl ${isDark ? "bg-slate-800" : "bg-indigo-50"} overflow-hidden`}>
                 {renderIcon(selectedApp.icon, selectedApp.name)}
               </div>
               <h2 className="text-lg font-semibold mb-1">{selectedApp.name}</h2>
-              <div className="text-xs text-indigo-500 mb-3">
-                {selectedApp.category}
-              </div>
-              <p className="text-sm text-slate-600 dark:text-slate-300 mb-5">
-                {selectedApp.description}
-              </p>
+              <div className="text-xs text-indigo-500 mb-3">{selectedApp.category}</div>
+              <p className="text-sm text-slate-600 dark:text-slate-300 mb-5">{selectedApp.description}</p>
               <a
                 href={selectedApp.href}
                 target={selectedApp.href.startsWith("http") ? "_blank" : "_self"}
@@ -542,11 +581,7 @@ const AppLauncherDemo: React.FC = () => {
               >
                 立即前往工具
               </a>
-              <button
-                type="button"
-                onClick={() => setSelectedApp(null)}
-                className="text-xs text-slate-400 hover:text-slate-200 mt-1"
-              >
+              <button type="button" onClick={() => setSelectedApp(null)} className="text-xs text-slate-400 hover:text-slate-200 mt-1">
                 下次再說，先關閉
               </button>
             </div>
@@ -554,14 +589,15 @@ const AppLauncherDemo: React.FC = () => {
         </div>
       )}
 
-      {/* 新增應用 Modal（含圖片上傳） */}
-      {createOpen && (
+      {/* 新增應用 Modal（只有 Admin；加到 catalog 草稿） */}
+      {isAdmin && createOpen && (
         <CreateAppModal
+          categories={catalog.categories}
           onClose={() => setCreateOpen(false)}
           onCreate={(app) => {
-            setCustomApps((prev) => [...prev, app]);
+            setCatalog(prev => ({ ...prev, apps: [...prev.apps, app] }));
             setCreateOpen(false);
-            showToast("已新增應用");
+            showToast("已新增（公開草稿）");
           }}
         />
       )}
@@ -569,13 +605,8 @@ const AppLauncherDemo: React.FC = () => {
       {/* 收藏提示 */}
       {toast && (
         <div className="fixed bottom-4 right-4 z-50">
-          <div
-            className={`rounded-xl px-3 py-2 text-xs shadow-lg flex items-center gap-2 ${
-              isDark
-                ? "bg-slate-900/95 border border-slate-700 text-slate-100"
-                : "bg-white border border-slate-200 text-slate-700"
-            }`}
-          >
+          <div className={`rounded-xl px-3 py-2 text-xs shadow-lg flex items中心 gap-2 ${
+            isDark ? "bg-slate-900/95 border border-slate-700 text-slate-100" : "bg-white border border-slate-200 text-slate-700"}`}>
             <span>⭐</span>
             <span>{toast}</span>
           </div>
@@ -585,53 +616,40 @@ const AppLauncherDemo: React.FC = () => {
   );
 };
 
-/** ====== 圖示渲染：支援 emoji / 路徑 / http(s) / data:image ====== */
+/** ========= 圖示渲染：emoji / 路徑 / http(s) / data:image ========= */
 function renderIcon(icon: string, alt = "") {
   const isImage =
     typeof icon === "string" &&
-    (icon.startsWith("/images/") ||
-      icon.startsWith("http") ||
-      icon.startsWith("data:image"));
-
-  if (isImage) {
-    return <img src={icon} alt={alt} className="h-full w-full object-contain" loading="lazy" />;
-  }
+    (icon.startsWith("/images/") || icon.startsWith("http") || icon.startsWith("data:image"));
+  if (isImage) return <img src={icon} alt={alt} className="h-full w-full object-contain" loading="lazy" />;
   return <span className="text-2xl">{icon}</span>;
 }
 
-/** ====== 新增應用 Modal（含檔案上傳 → base64） ====== */
+/** ========= 新增應用 Modal（Admin 專用） ========= */
 function CreateAppModal({
   onClose,
   onCreate,
+  categories,
 }: {
   onClose: () => void;
   onCreate: (app: App) => void;
+  categories: Category[];
 }) {
   const [name, setName] = React.useState("");
   const [href, setHref] = React.useState("");
-  const [icon, setIcon] = React.useState("🧩"); // emoji / /images/xxx.png / data:image...
-  const [category, setCategory] = React.useState<Category>("AI智能體");
+  const [icon, setIcon] = React.useState("🧩");
+  const [category, setCategory] = React.useState<Category>(categories[0] || "AI智能體");
   const [description, setDescription] = React.useState("");
   const [tags, setTags] = React.useState("");
-
   const [preview, setPreview] = React.useState<string | null>(null);
 
   const canSave = name.trim() && href.trim();
 
-  // 處理上傳檔案：轉 base64
   const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
-    // 簡易限制
-    if (!f.type.startsWith("image/")) {
-      alert("請選擇圖片檔");
-      return;
-    }
-    if (f.size > 1024 * 1024 * 2) {
-      // 2MB
-      alert("圖片大小請小於 2MB");
-      return;
-    }
+    if (!f.type.startsWith("image/")) return alert("請選擇圖片檔");
+    if (f.size > 1024 * 1024 * 2) return alert("圖片大小請小於 2MB");
     const dataUrl = await fileToDataUrl(f);
     setIcon(dataUrl);
     setPreview(dataUrl);
@@ -642,116 +660,75 @@ function CreateAppModal({
       <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold">新增應用</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-700">
-            ✕
-          </button>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-700">✕</button>
         </div>
 
         <div className="grid grid-cols-1 gap-3">
           <label className="text-sm">
             名稱
-            <input
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              placeholder="例如：我的工具"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
+            <input className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="例如：我的工具"
+                   value={name} onChange={(e) => setName(e.target.value)} />
           </label>
 
           <label className="text-sm">
             連結（URL）
-            <input
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              placeholder="https://example.com"
-              value={href}
-              onChange={(e) => setHref(e.target.value)}
-            />
+            <input className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="https://example.com"
+                   value={href} onChange={(e) => setHref(e.target.value)} />
           </label>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <label className="text-sm">
               圖示（文字路徑或 emoji）
-              <input
-                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                placeholder="🧩 或 /images/myicon.png 或 https://... "
-                value={icon}
-                onChange={(e) => {
-                  setIcon(e.target.value);
-                  setPreview(null);
-                }}
-              />
+              <input className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                     placeholder="🧩 或 /images/myicon.png 或 https://..."
+                     value={icon}
+                     onChange={(e) => { setIcon(e.target.value); setPreview(null); }} />
             </label>
 
             <label className="text-sm">
               或直接上傳圖片
-              <input
-                type="file"
-                accept="image/*"
-                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm bg-white"
-                onChange={onFileChange}
-              />
+              <input type="file" accept="image/*"
+                     className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm bg-white"
+                     onChange={onFileChange} />
             </label>
           </div>
 
-          {(preview || icon.startsWith("data:image")) && (
-            <div className="mt-1">
-              <div className="text-xs text-slate-500 mb-1">預覽：</div>
-              <div className="h-16 w-16 rounded-xl overflow-hidden bg-slate-100 flex items-center justify-center">
-                <img
-                  src={preview || icon}
-                  alt="預覽"
-                  className="h-full w-full object-contain"
-                />
-              </div>
+        {(preview || icon.startsWith("data:image")) && (
+          <div className="mt-1">
+            <div className="text-xs text-slate-500 mb-1">預覽：</div>
+            <div className="h-16 w-16 rounded-xl overflow-hidden bg-slate-100 flex items-center justify-center">
+              <img src={preview || icon} alt="預覽" className="h-full w-full object-contain" />
             </div>
-          )}
+          </div>
+        )}
 
           <label className="text-sm">
             分類
-            <select
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              value={category}
-              onChange={(e) => setCategory(e.target.value as Category)}
-            >
-              {categories.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
+            <select className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                    value={category} onChange={(e) => setCategory(e.target.value as Category)}>
+              {categories.map((c) => (<option key={c} value={c}>{c}</option>))}
             </select>
           </label>
 
           <label className="text-sm">
             簡介
-            <textarea
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              rows={3}
-              placeholder="這個工具可以幫你做什麼？"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
+            <textarea className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" rows={3}
+                      placeholder="這個工具可以幫你做什麼？"
+                      value={description} onChange={(e) => setDescription(e.target.value)} />
           </label>
 
           <label className="text-sm">
             標籤（以逗號分隔）
-            <input
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              placeholder="例如：中文, 高效率"
-              value={tags}
-              onChange={(e) => setTags(e.target.value)}
-            />
+            <input className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                   placeholder="例如：中文, 高效率"
+                   value={tags} onChange={(e) => setTags(e.target.value)} />
           </label>
         </div>
 
         <div className="mt-5 flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-lg border px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">取消</button>
           <button
-            onClick={onClose}
-            className="rounded-lg border px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"
-          >
-            取消
-          </button>
-          <button
-            disabled={!name.trim() || !href.trim()}
+            disabled={!canSave}
             onClick={() =>
               onCreate({
                 name: name.trim(),
@@ -759,17 +736,10 @@ function CreateAppModal({
                 icon: icon.trim() || "🧩",
                 category,
                 description: description.trim(),
-                tags: tags
-                  .split(",")
-                  .map((t) => t.trim())
-                  .filter(Boolean),
+                tags: tags.split(",").map(t => t.trim()).filter(Boolean),
               })
             }
-            className={`rounded-lg px-4 py-2 text-sm text-white ${
-              name.trim() && href.trim()
-                ? "bg-indigo-600 hover:bg-indigo-700"
-                : "bg-slate-300 cursor-not-allowed"
-            }`}
+            className={`rounded-lg px-4 py-2 text-sm text白 ${canSave ? "bg-indigo-600 hover:bg-indigo-700" : "bg-slate-300 cursor-not-allowed"}`}
           >
             新增
           </button>
@@ -779,7 +749,7 @@ function CreateAppModal({
   );
 }
 
-/** 小工具：File → DataURL(base64) */
+/** ========= 小工具：File → DataURL(base64) ========= */
 function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
