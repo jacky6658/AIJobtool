@@ -106,7 +106,7 @@ const AppLauncherDemo: React.FC = () => {
     },
     {
       name: "GPT",
-      icon: "/images/ChatGPT.webp",
+      icon: "/images/ChatGPT.png",
       description: "使用 OpenAI GPT 系列模型進行智能對話。",
       href: "https://chat.openai.com/",
       category: "AI對話",
@@ -114,7 +114,7 @@ const AppLauncherDemo: React.FC = () => {
     },
     {
       name: "Gemini",
-      icon: "/images/gemini.webp",
+      icon: "/images/gemini.png",
       description: "由 Google 推出的多模態 AI 對話系統。",
       href: "https://gemini.google.com/",
       category: "AI對話",
@@ -122,7 +122,7 @@ const AppLauncherDemo: React.FC = () => {
     },
     {
       name: "Manus",
-      icon: "/images/manus-icon.webp",
+      icon: "/images/manus.png",
       description: "高效能中文 AI 對話系統，支援多場景應用。",
       href: "https://manus.im/",
       category: "AI對話",
