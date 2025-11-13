@@ -32,7 +32,7 @@ const CATALOG_API_ENDPOINT = (import.meta.env.VITE_CATALOG_API_ENDPOINT as strin
 
 /** ========= Fallback（catalog.json 載入失敗時使用） ========= */
 const fallbackCatalog: Catalog = {
-  categories: ["AI智能體", "AI對話", "AI寫程式工具", "部署平台"],
+  categories: ["AI員工", "AI對話", "AI寫程式工具", "部署平台"],
   apps: [
     // --- AI員工 ---
     {
@@ -40,7 +40,7 @@ const fallbackCatalog: Catalog = {
       icon: "🎬",
       description: "輸入需求即可自動生成帳號定位、腳本選題與短影音腳本。",
       href: "https://reelmind.aijob.com.tw",
-      category: "AI智能體",
+      category: "AI員工",
       tags: ["短影音", "內容策略", "影片腳本"],
     },
     {
@@ -537,7 +537,7 @@ const AppLauncherDemo: React.FC = () => {
                     ? "text-slate-300 hover:bg-slate-800/80 hover:text-slate-50"
                     : "text-slate-600 hover:bg-slate-50/80 hover:text-slate-900"}`}>
                 <span className="text-base">
-                  {cat === "AI智能體" ? "🤖" : cat === "AI對話" ? "💬" : cat === "AI寫程式工具" ? "🛠️" : "☁️"}
+                  {cat === "AI員工" ? "🤖" : cat === "AI對話" ? "💬" : cat === "AI寫程式工具" ? "🛠️" : "☁️"}
                 </span>
                 <span>{cat}</span>
               </button>
