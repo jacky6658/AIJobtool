@@ -361,11 +361,16 @@ const AppLauncherDemo: React.FC = () => {
 
   /** ====== 自動上傳 catalog 到後端 API ====== */
   const uploadCatalogToAPI = async (catalogData: Catalog): Promise<boolean> => {
+    console.log("\n" + "=".repeat(60));
+    console.log("📤 開始上傳 catalog 到後端 API");
+    console.log("=".repeat(60));
+    
     // 如果沒有設定完整 URL，使用相對路徑（同一個服務）
     let apiEndpoint = CATALOG_API_ENDPOINT;
     if (!apiEndpoint || apiEndpoint.trim() === "") {
-      console.log("⚠️ VITE_CATALOG_API_ENDPOINT 未設定，跳過自動上傳");
-      return false; // 沒有設定 API endpoint，跳過上傳
+      console.error("❌ VITE_CATALOG_API_ENDPOINT 未設定！");
+      console.log("💡 請在 Zeabur 環境變數中設定: VITE_CATALOG_API_ENDPOINT = /api/catalog");
+      return false;
     }
     
     // 如果是相對路徑，補上當前域名
@@ -373,7 +378,11 @@ const AppLauncherDemo: React.FC = () => {
       apiEndpoint = `${window.location.origin}${apiEndpoint}`;
     }
 
-    console.log("📤 嘗試上傳 catalog 到:", apiEndpoint);
+    console.log("🌐 API 端點:", apiEndpoint);
+    console.log("📊 Catalog 資料:", {
+      categories: catalogData.categories.length,
+      apps: catalogData.apps.length
+    });
 
     // 取得原始密碼（用於 API 授權）
     let adminSecret = "";
@@ -381,6 +390,10 @@ const AppLauncherDemo: React.FC = () => {
       const encoded = localStorage.getItem("aijob-admin-secret");
       if (encoded) {
         adminSecret = atob(encoded);
+        console.log("🔑 Admin 密碼: 已取得");
+      } else {
+        console.error("❌ 無法從 localStorage 取得 Admin 密碼");
+        console.log("💡 請重新登入 Admin: #admin=你的密碼");
       }
     } catch (error) {
       console.error("❌ 讀取 Admin 密碼失敗:", error);
@@ -388,11 +401,12 @@ const AppLauncherDemo: React.FC = () => {
     }
 
     if (!adminSecret) {
-      console.warn("⚠️ 無法取得 Admin 密碼，跳過 API 上傳");
+      console.error("❌ 無法取得 Admin 密碼，跳過 API 上傳");
       return false;
     }
 
     try {
+      console.log("📡 發送 POST 請求...");
       const response = await fetch(apiEndpoint, {
         method: "POST",
         headers: {
@@ -402,17 +416,36 @@ const AppLauncherDemo: React.FC = () => {
         body: JSON.stringify(catalogData),
       });
 
+      console.log("📥 收到回應:", {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok
+      });
+
       if (response.ok) {
         const result = await response.json().catch(() => ({}));
-        console.log("✅ 上傳成功:", result);
+        console.log("✅ 上傳成功！", result);
+        console.log("=".repeat(60) + "\n");
         return true;
       } else {
         const errorData = await response.json().catch(() => ({}));
-        console.error("❌ 上傳失敗:", response.status, response.statusText, errorData);
+        console.error("❌ 上傳失敗:", response.status, response.statusText);
+        console.error("錯誤詳情:", errorData);
+        console.log("=".repeat(60) + "\n");
         return false;
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("❌ 上傳 catalog 到 API 失敗:", error);
+      console.error("錯誤類型:", error.name);
+      console.error("錯誤訊息:", error.message);
+      if (error.message?.includes("Failed to fetch") || error.message?.includes("NetworkError")) {
+        console.error("💡 這可能是網路錯誤或 CORS 問題");
+        console.error("💡 請檢查：");
+        console.error("   1. 後端服務是否正在運行");
+        console.error("   2. API 端點是否正確");
+        console.error("   3. 服務類型是否為 Node.js（不是 Static Site）");
+      }
+      console.log("=".repeat(60) + "\n");
       return false;
     }
   };
@@ -527,6 +560,9 @@ const AppLauncherDemo: React.FC = () => {
                       <span className="text-[9px] text-amber-500">請設定 VITE_CATALOG_API_ENDPOINT</span>
                     </div>
                   )}
+                  <div className="mt-1 text-[9px] text-slate-500">
+                    💡 開啟瀏覽器控制台（F12）查看詳細日誌
+                  </div>
                 </div>
               </div>
 
