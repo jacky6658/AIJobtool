@@ -36,7 +36,7 @@ const fallbackCatalog: Catalog = {
   apps: [
     // --- AI員工 ---
     {
-      name: "ReelMind短影音",
+      name: "ReelMind短影音智能體",
       icon: "🎬",
       description: "輸入需求即可自動生成帳號定位、腳本選題與短影音腳本。",
       href: "https://reelmind.aijob.com.tw",
@@ -44,11 +44,11 @@ const fallbackCatalog: Catalog = {
       tags: ["短影音", "內容策略", "影片腳本"],
     },
     {
-      name: "HR招募",
+      name: "HR招募智能體",
       icon: "💼",
       description: "快速生成職缺描述、面試問題與人才畫像分析。",
       href: "https://step1nerecruit.zeabur.app/",
-      category: "AI智能體",
+      category: "AI員工",
       tags: ["HR", "招募", "面試題目"],
     },
 
@@ -59,7 +59,7 @@ const fallbackCatalog: Catalog = {
       description: "使用 OpenAI GPT 系列模型進行智能對話。",
       href: "https://chat.openai.com/",
       category: "AI對話",
-      tags: ["人資", "招募", "程式"],
+      tags: ["通用", "英文", "程式"],
     },
     {
       name: "Gemini",
@@ -198,7 +198,7 @@ const AppLauncherDemo: React.FC = () => {
         if (Array.isArray(data.categories) && Array.isArray(data.apps)) {
           setCatalog(data);
           if (!data.categories.includes(activeCategory)) {
-            setActiveCategory(data.categories[0] || "AI智能體");
+            setActiveCategory(data.categories[0] || "AI員工");
           }
         }
       })
@@ -211,7 +211,7 @@ const AppLauncherDemo: React.FC = () => {
             if (Array.isArray(parsed.categories) && Array.isArray(parsed.apps)) {
               setCatalog(parsed);
               if (!parsed.categories.includes(activeCategory)) {
-                setActiveCategory(parsed.categories[0] || "AI智能體");
+                setActiveCategory(parsed.categories[0] || "AI員工");
               }
             }
           }
@@ -887,7 +887,7 @@ function CreateAppModal({
   const [name, setName] = React.useState("");
   const [href, setHref] = React.useState("");
   const [icon, setIcon] = React.useState("🧩");
-  const [category, setCategory] = React.useState<Category>(categories[0] || "AI智能體");
+  const [category, setCategory] = React.useState<Category>(categories[0] || "AI員工");
   const [description, setDescription] = React.useState("");
   const [tags, setTags] = React.useState("");
   const [preview, setPreview] = React.useState<string | null>(null);
