@@ -856,21 +856,81 @@ function CreateAppModal({
   const [tags, setTags] = React.useState("");
   const [preview, setPreview] = React.useState<string | null>(null);
   const [isFetchingLogo, setIsFetchingLogo] = React.useState(false);
+  const [uploadedImages, setUploadedImages] = React.useState<string[]>([]);
 
   const canSave = name.trim() && href.trim();
 
-  const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    if (!f.type.startsWith("image/")) return alert("請選擇圖片檔");
-    if (f.size > 1024 * 1024 * 2) return alert("圖片大小請小於 2MB");
-    const dataUrl = await fileToDataUrl(f);
-    setIcon(dataUrl);
-    setPreview(dataUrl);
+  // Logo 快取（使用 localStorage）
+  const getCachedLogo = (url: string): string | null => {
+    try {
+      const cache = localStorage.getItem("aijob-logo-cache");
+      if (cache) {
+        const cacheData = JSON.parse(cache);
+        const domain = new URL(url.startsWith("http") ? url : `https://${url}`).hostname;
+        return cacheData[domain] || null;
+      }
+    } catch {}
+    return null;
   };
 
-  /** ========= 從 URL 自動抓取 Logo ========= */
-  const fetchLogoFromUrl = async (url: string) => {
+  const setCachedLogo = (url: string, logoUrl: string) => {
+    try {
+      const cache = localStorage.getItem("aijob-logo-cache");
+      const cacheData = cache ? JSON.parse(cache) : {};
+      const domain = new URL(url.startsWith("http") ? url : `https://${url}`).hostname;
+      cacheData[domain] = logoUrl;
+      // 限制快取大小（最多保留 100 個）
+      const entries = Object.entries(cacheData);
+      if (entries.length > 100) {
+        const recent = entries.slice(-100);
+        localStorage.setItem("aijob-logo-cache", JSON.stringify(Object.fromEntries(recent)));
+      } else {
+        localStorage.setItem("aijob-logo-cache", JSON.stringify(cacheData));
+      }
+    } catch {}
+  };
+
+  const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const fileList = Array.from(files) as File[];
+    const imageFiles = fileList.filter((f: File) => f.type.startsWith("image/"));
+    if (imageFiles.length === 0) {
+      alert("請選擇圖片檔");
+      return;
+    }
+
+    // 檢查檔案大小
+    const oversized = imageFiles.filter((f: File) => f.size > 1024 * 1024 * 2);
+    if (oversized.length > 0) {
+      alert(`以下圖片超過 2MB，將被跳過：${oversized.map((f: File) => f.name).join(", ")}`);
+    }
+
+    const validFiles = imageFiles.filter((f: File) => f.size <= 1024 * 1024 * 2);
+    if (validFiles.length === 0) return;
+
+    // 轉換所有圖片為 data URL
+    const dataUrls: string[] = [];
+    for (const file of validFiles) {
+      try {
+        const dataUrl = await fileToDataUrl(file);
+        dataUrls.push(dataUrl);
+      } catch (error) {
+        console.error(`轉換 ${file.name} 失敗:`, error);
+      }
+    }
+
+    if (dataUrls.length > 0) {
+      setUploadedImages(dataUrls);
+      // 使用第一張圖片作為預設圖示
+      setIcon(dataUrls[0]);
+      setPreview(dataUrls[0]);
+    }
+  };
+
+  /** ========= 從 URL 自動抓取 Logo（優先使用快取） ========= */
+  const fetchLogoFromUrl = async (url: string, useCache = true) => {
     if (!url || !url.trim()) return null;
     
     try {
@@ -881,6 +941,15 @@ function CreateAppModal({
         domain = urlObj.hostname;
       } catch {
         return null;
+      }
+
+      // 優先檢查快取
+      if (useCache) {
+        const cached = getCachedLogo(url);
+        if (cached) {
+          console.log("✅ 使用快取的 Logo:", domain);
+          return cached;
+        }
       }
 
       // 方法 1: 使用 Google 的 favicon 服務（最可靠，無 CORS 問題）
@@ -901,6 +970,8 @@ function CreateAppModal({
       // 先嘗試 Google favicon 服務
       const googleWorks = await testImage(googleFaviconUrl);
       if (googleWorks) {
+        // 儲存到快取
+        setCachedLogo(url, googleFaviconUrl);
         return googleFaviconUrl;
       }
 
@@ -910,12 +981,11 @@ function CreateAppModal({
         const faviconUrl = `${urlObj.origin}/favicon.ico`;
         const faviconWorks = await testImage(faviconUrl);
         if (faviconWorks) {
+          // 儲存到快取
+          setCachedLogo(url, faviconUrl);
           return faviconUrl;
         }
       } catch {}
-
-      // 方法 3: 嘗試解析 HTML 中的 favicon（需要代理或 CORS，這裡先不實作）
-      // 因為瀏覽器 CORS 限制，無法直接 fetch 其他網站的 HTML
 
       return null;
     } catch (error) {
@@ -923,6 +993,58 @@ function CreateAppModal({
       return null;
     }
   };
+
+  // URL 變更時自動抓取 Logo（使用 debounce，優先使用快取）
+  React.useEffect(() => {
+    if (!href || !href.trim()) {
+      setIcon("🧩");
+      setPreview(null);
+      return;
+    }
+
+    // 優先檢查快取
+    const cached = getCachedLogo(href);
+    if (cached) {
+      setIcon(cached);
+      setPreview(cached);
+      // 如果名稱還沒填，嘗試從 URL 推斷
+      if (!name.trim()) {
+        try {
+          const urlObj = new URL(href.startsWith("http") ? href : `https://${href}`);
+          const domainName = urlObj.hostname.replace("www.", "").split(".")[0];
+          setName(domainName.charAt(0).toUpperCase() + domainName.slice(1));
+        } catch {}
+      }
+      return;
+    }
+
+    // Debounce：等待用戶停止輸入 1 秒後再抓取
+    const timer = setTimeout(async () => {
+      setIsFetchingLogo(true);
+      try {
+        const logoUrl = await fetchLogoFromUrl(href, false);
+        if (logoUrl) {
+          setIcon(logoUrl);
+          setPreview(logoUrl);
+          // 如果名稱還沒填，嘗試從 URL 推斷
+          if (!name.trim()) {
+            try {
+              const urlObj = new URL(href.startsWith("http") ? href : `https://${href}`);
+              const domainName = urlObj.hostname.replace("www.", "").split(".")[0];
+              setName(domainName.charAt(0).toUpperCase() + domainName.slice(1));
+            } catch {}
+          }
+        }
+      } catch (error) {
+        console.error("自動抓取 Logo 失敗:", error);
+      } finally {
+        setIsFetchingLogo(false);
+      }
+    }, 1000);
+
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [href]);
 
   const handleFetchLogo = async () => {
     if (!href || !href.trim()) {
@@ -932,7 +1054,8 @@ function CreateAppModal({
 
     setIsFetchingLogo(true);
     try {
-      const logoUrl = await fetchLogoFromUrl(href);
+      // 強制重新抓取（不使用快取）
+      const logoUrl = await fetchLogoFromUrl(href, false);
       if (logoUrl) {
         setIcon(logoUrl);
         setPreview(logoUrl);
@@ -991,9 +1114,9 @@ function CreateAppModal({
                     ? "bg-slate-200 text-slate-400 cursor-not-allowed"
                     : "bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
                 }`}
-                title="自動從 URL 抓取網站 Logo"
+                title="重新抓取網站 Logo（會自動快取）"
               >
-                {isFetchingLogo ? "抓取中..." : "🔍 自動抓取 Logo"}
+                {isFetchingLogo ? "抓取中..." : "🔄 重新抓取"}
               </button>
             </div>
           </label>
@@ -1010,26 +1133,33 @@ function CreateAppModal({
             </label>
 
             <label className="text-sm">
-              或直接上傳圖片
+              或直接上傳圖片（可多選）
               <input
                 type="file"
                 accept="image/*"
+                multiple
                 className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm bg-white"
                 onChange={onFileChange}
               />
+              {uploadedImages.length > 1 && (
+                <div className="mt-2 text-xs text-slate-500">
+                  已上傳 {uploadedImages.length} 張圖片，點擊下方圖片切換
+                </div>
+              )}
             </label>
           </div>
 
-          {(preview || icon.startsWith("data:image") || icon.startsWith("http")) && (
+          {(preview || icon.startsWith("data:image") || icon.startsWith("http") || uploadedImages.length > 0) && (
             <div className="mt-1">
-              <div className="text-xs text-slate-500 mb-1">預覽：</div>
-              <div className="h-16 w-16 rounded-xl overflow-hidden bg-slate-100 flex items-center justify-center border border-slate-200">
+              <div className="text-xs text-slate-500 mb-2">預覽：</div>
+              
+              {/* 主要預覽 */}
+              <div className="h-20 w-20 rounded-xl overflow-hidden bg-slate-100 flex items-center justify-center border-2 border-indigo-300 border-dashed mb-2">
                 <img 
                   src={preview || icon} 
                   alt="預覽" 
                   className="h-full w-full object-contain"
                   onError={(e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-                    // 如果圖片載入失敗，顯示預設圖示
                     const target = e.currentTarget;
                     target.style.display = "none";
                     const parent = target.parentElement;
@@ -1039,6 +1169,36 @@ function CreateAppModal({
                   }}
                 />
               </div>
+
+              {/* 多張圖片選擇器 */}
+              {uploadedImages.length > 1 && (
+                <div className="mt-2">
+                  <div className="text-xs text-slate-500 mb-1">選擇圖片：</div>
+                  <div className="flex flex-wrap gap-2">
+                    {uploadedImages.map((img, index) => (
+                      <button
+                        key={index}
+                        type="button"
+                        onClick={() => {
+                          setIcon(img);
+                          setPreview(img);
+                        }}
+                        className={`h-12 w-12 rounded-lg overflow-hidden border-2 transition-all ${
+                          (preview || icon) === img
+                            ? "border-indigo-500 ring-2 ring-indigo-200"
+                            : "border-slate-200 hover:border-indigo-300"
+                        }`}
+                      >
+                        <img 
+                          src={img} 
+                          alt={`圖片 ${index + 1}`}
+                          className="h-full w-full object-cover"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
