@@ -34,9 +34,9 @@ const CATALOG_API_ENDPOINT = (import.meta.env.VITE_CATALOG_API_ENDPOINT as strin
 const fallbackCatalog: Catalog = {
   categories: ["AI智能體", "AI對話", "AI寫程式工具", "部署平台"],
   apps: [
-    // --- AI智能體 ---
+    // --- AI員工 ---
     {
-      name: "ReelMind短影音智能體",
+      name: "ReelMind短影音",
       icon: "🎬",
       description: "輸入需求即可自動生成帳號定位、腳本選題與短影音腳本。",
       href: "https://reelmind.aijob.com.tw",
@@ -44,7 +44,7 @@ const fallbackCatalog: Catalog = {
       tags: ["短影音", "內容策略", "影片腳本"],
     },
     {
-      name: "HR招募智能體",
+      name: "HR招募",
       icon: "💼",
       description: "快速生成職缺描述、面試問題與人才畫像分析。",
       href: "https://step1nerecruit.zeabur.app/",
@@ -59,7 +59,7 @@ const fallbackCatalog: Catalog = {
       description: "使用 OpenAI GPT 系列模型進行智能對話。",
       href: "https://chat.openai.com/",
       category: "AI對話",
-      tags: ["通用", "英文", "程式"],
+      tags: ["人資", "招募", "程式"],
     },
     {
       name: "Gemini",
