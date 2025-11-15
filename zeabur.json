@@ -4,8 +4,8 @@
     "buildCommand": "npm install && npm run build"
   },
   "deploy": {
-    "startCommand": "npm start",
-    "outputDirectory": ""
+    "startCommand": "node server.js",
+    "outputDirectory": "dist"
   }
 }
 
