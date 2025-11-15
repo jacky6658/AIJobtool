@@ -2,6 +2,7 @@ import React from "react";
 import { AdminPanel } from "./components/AdminPanel";
 import { LoadingAnimation } from "./components/LoadingAnimation";
 import { HomePage } from "./components/HomePage";
+import { SEOHead } from "./components/SEOHead";
 import { sanitizeAppName, sanitizeDescription, sanitizeCategoryName, sanitizeTags, isValidUrl, validateCatalog } from "./utils/security";
 import { isValidImageMime, isValidFileSize, isValidDataUrl, validateImageFileContent, validatePasswordStrength } from "./utils/advancedSecurity";
 
@@ -578,9 +579,23 @@ const AppLauncherDemo: React.FC = () => {
     return <LoadingAnimation onComplete={() => setShowLoading(false)} />;
   }
 
+  // 根據當前頁面動態更新 SEO
+  const seoTitle = currentPage === "home" 
+    ? "AIJob 自動化學院 - AI 工具庫與自動化教學"
+    : `AIJob ${activeCategory} - AI 工具庫`;
+  const seoDescription = currentPage === "home"
+    ? "AIJob 自動化學院專注於 AI 與自動化技術教學，提供 AI 工具庫、n8n 自動化課程、LINE 社群、Discord 社群等資源，從零打造你的工作流效率。"
+    : `探索 ${activeCategory} 相關的 AI 工具與智能體，從這裡出發啟動工作流程。`;
+
   return (
-    <div className={isDark ? "min-h-screen bg-slate-950 text-slate-100 relative overflow-hidden"
-                           : "min-h-screen bg-slate-50 text-slate-900 relative overflow-hidden"}>
+    <>
+      <SEOHead 
+        title={seoTitle}
+        description={seoDescription}
+        currentPage={currentPage}
+      />
+      <div className={isDark ? "min-h-screen bg-slate-950 text-slate-100 relative overflow-hidden"
+                             : "min-h-screen bg-slate-50 text-slate-900 relative overflow-hidden"}>
       {/* 背景動態 */}
       <div className="pointer-events-none absolute inset-0">
         <div className={`absolute -top-24 -right-24 h-72 w-72 rounded-full blur-3xl opacity-70 animate-pulse ${isDark ? "bg-indigo-900/40" : "bg-indigo-100"}`} />
@@ -1095,7 +1110,8 @@ const AppLauncherDemo: React.FC = () => {
           }}
         />
       )}
-    </div>
+      </div>
+    </>
   );
 };
 
