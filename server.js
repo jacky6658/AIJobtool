@@ -478,6 +478,12 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Favicon 路由（避免 404 錯誤）
+app.get('/favicon.ico', (req, res) => {
+  // 返回 204 No Content，避免瀏覽器重複請求
+  res.status(204).end();
+});
+
 // 靜態檔案（必須在最後，作為 fallback）
 app.use(express.static('dist', {
   // 排除 API 路由
