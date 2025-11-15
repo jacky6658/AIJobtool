@@ -4,7 +4,7 @@
     "AI對話",
     "AI寫程式工具",
     "部署平台",
-    "AI自動化"
+    "AI 自動化(workflow)"
   ],
   "apps": [
     {
@@ -57,10 +57,10 @@
     },
     {
       "name": "Manus",
-      "icon": "/images/manus.png",
-      "description": "高效能中文 AI 對話系統，支援多場景應用。",
-      "href": "https://manus.im/",
+      "href": "https://manus.im/invitation/TOWQQUHBWED1",
+      "icon": "https://www.google.com/s2/favicons?domain=manus.im&sz=128",
       "category": "AI對話",
+      "description": "高效能中文 AI 對話系統，支援多場景應用。",
       "tags": [
         "中文",
         "效率",
@@ -104,7 +104,7 @@
     },
     {
       "name": "Zeabur",
-      "href": "https://zeabur.com",
+      "href": "https://zeabur.com/referral?referralCode=aiagentg888",
       "icon": "https://www.google.com/s2/favicons?domain=zeabur.com&sz=128",
       "category": "部署平台",
       "description": "一鍵自動化部署，支援 Node/Static/DB 等服務。",
@@ -136,6 +136,30 @@
         "靜態",
         "Functions",
         "CI/CD"
+      ]
+    },
+    {
+      "name": "n8n",
+      "href": "https://n8n.io/",
+      "icon": "https://www.google.com/s2/favicons?domain=n8n.io&sz=128",
+      "category": "AI 自動化(workflow)",
+      "description": "n8n 是一款強大且可視化的自動化工具，讓你透過拖拉節點快速建立工作流程。可串接 API、資料庫、第三方服務，無需工程背景就能打造專屬自動化。",
+      "tags": [
+        "自動化",
+        "API 自動化LLM 工作流",
+        "AI Agent"
+      ]
+    },
+    {
+      "name": "n8ncoder",
+      "href": "https://affiliate.n8ncoder.com?campaign=3622",
+      "icon": "https://www.google.com/s2/favicons?domain=affiliate.n8ncoder.com&sz=128",
+      "category": "AI 自動化(workflow)",
+      "description": "n8nCoder 是一款能幫你「寫 n8n 工作流」的 AI 助理。\n它能依照你的指令自動生成流程、修正節點設定、偵錯錯誤、優化邏輯，甚至提供成千上萬的範本。無需手動寫 API，也不需程式語言基礎，就能快速打造專屬自動化工作流。",
+      "tags": [
+        "AI工作流",
+        "自動化助手",
+        "AI 工作流"
       ]
     }
   ]

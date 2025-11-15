@@ -1,5 +1,7 @@
 import React from "react";
 import { AdminPanel } from "./components/AdminPanel";
+import { sanitizeAppName, sanitizeDescription, sanitizeCategoryName, sanitizeTags, isValidUrl, validateCatalog } from "./utils/security";
+import { isValidImageMime, isValidFileSize, isValidDataUrl, validateImageFileContent, validatePasswordStrength } from "./utils/advancedSecurity";
 
 /** ========= 型別 ========= */
 type Category = string;
@@ -167,11 +169,31 @@ const AppLauncherDemo: React.FC = () => {
     // 如果已登入，驗證 localStorage 中的值是否仍然有效
     if (isAdmin) {
       const stored = localStorage.getItem("aijob-admin-hash");
+      const loginTime = localStorage.getItem("aijob-admin-login-time");
+      
+      // 檢查會話是否過期（24 小時）
+      if (loginTime) {
+        const loginTimestamp = parseInt(loginTime, 10);
+        const sessionTimeout = 24 * 60 * 60 * 1000; // 24 小時
+        if (Date.now() - loginTimestamp > sessionTimeout) {
+          // 會話過期
+          setIsAdmin(false);
+          try {
+            localStorage.removeItem("aijob-admin-hash");
+            localStorage.removeItem("aijob-admin-secret");
+            localStorage.removeItem("aijob-admin-login-time");
+          } catch {}
+          showToast("會話已過期，請重新登入");
+          return;
+        }
+      }
+      
       if (!stored || stored !== ADMIN_HASH) {
         setIsAdmin(false);
         try {
           localStorage.removeItem("aijob-admin-hash");
           localStorage.removeItem("aijob-admin-secret");
+          localStorage.removeItem("aijob-admin-login-time");
         } catch {}
       }
     }
@@ -261,6 +283,7 @@ const AppLauncherDemo: React.FC = () => {
           try { 
             localStorage.removeItem("aijob-admin-hash");
             localStorage.removeItem("aijob-admin-secret");
+            localStorage.removeItem("aijob-admin-login-time");
           } catch {}
           setIsAdmin(false);
           clearHash();
@@ -274,6 +297,8 @@ const AppLauncherDemo: React.FC = () => {
               localStorage.setItem("aijob-admin-hash", ADMIN_HASH);
               // 儲存原始密碼（用於 API 授權，簡單 base64 編碼）
               localStorage.setItem("aijob-admin-secret", btoa(raw));
+              // 記錄登入時間（用於會話過期檢查）
+              localStorage.setItem("aijob-admin-login-time", Date.now().toString());
             } catch {}
             setIsAdmin(true);
           } else {
@@ -460,9 +485,20 @@ const AppLauncherDemo: React.FC = () => {
   const addCategory = async () => {
     const n = newCategory.trim();
     if (!n) return;
-    if (catalog.categories.includes(n)) return alert("已存在相同分類");
     
-    const newCatalog = { ...catalog, categories: [...catalog.categories, n] };
+    // 驗證和清理分類名稱
+    const sanitizedName = sanitizeCategoryName(n);
+    if (!sanitizedName) {
+      showToast("分類名稱無效");
+      return;
+    }
+    
+    if (catalog.categories.includes(sanitizedName)) {
+      showToast("已存在相同分類");
+      return;
+    }
+    
+    const newCatalog = { ...catalog, categories: [...catalog.categories, sanitizedName] };
     setCatalog(newCatalog);
     setNewCategory("");
     
@@ -620,6 +656,7 @@ const AppLauncherDemo: React.FC = () => {
                   try { 
                     localStorage.removeItem("aijob-admin-hash");
                     localStorage.removeItem("aijob-admin-secret");
+                    localStorage.removeItem("aijob-admin-login-time");
                   } catch {}; 
                   setIsAdmin(false); 
                 }}
@@ -857,7 +894,33 @@ const AppLauncherDemo: React.FC = () => {
           categories={catalog.categories}
           onClose={() => setCreateOpen(false)}
           onCreate={async (app) => {
-            const newCatalog = { ...catalog, apps: [...catalog.apps, app] };
+            // 輸入驗證和清理
+            if (!app.name || !app.name.trim()) {
+              showToast("應用程式名稱不能為空");
+              return;
+            }
+
+            if (!app.href || !app.href.trim()) {
+              showToast("應用程式連結不能為空");
+              return;
+            }
+
+            if (!isValidUrl(app.href)) {
+              showToast("應用程式連結格式無效");
+              return;
+            }
+
+            // 清理輸入
+            const sanitizedApp: App = {
+              name: sanitizeAppName(app.name),
+              href: app.href.trim(),
+              icon: app.icon || "🧩",
+              category: sanitizeCategoryName(app.category),
+              description: sanitizeDescription(app.description || ""),
+              tags: sanitizeTags(app.tags || []),
+            };
+
+            const newCatalog = { ...catalog, apps: [...catalog.apps, sanitizedApp] };
             setCatalog(newCatalog);
             setCreateOpen(false);
             
@@ -925,6 +988,11 @@ const AppLauncherDemo: React.FC = () => {
               try {
                 localStorage.setItem("aijob-admin-hash", ADMIN_HASH);
                 localStorage.setItem("aijob-admin-secret", btoa(password));
+                // 記錄登入時間（用於會話過期檢查）
+                localStorage.setItem("aijob-admin-login-time", Date.now().toString());
+                // 清除登入失敗記錄
+                localStorage.removeItem("aijob-login-attempts");
+                localStorage.removeItem("aijob-login-lockout");
               } catch {}
               setIsAdmin(true);
               setAdminLoginOpen(false);
@@ -1007,19 +1075,27 @@ function CreateAppModal({
     if (!files || files.length === 0) return;
 
     const fileList = Array.from(files) as File[];
-    const imageFiles = fileList.filter((f: File) => f.type.startsWith("image/"));
+    
+    // 驗證 MIME 類型
+    const imageFiles = fileList.filter((f: File) => {
+      if (!isValidImageMime(f.type)) {
+        return false;
+      }
+      return true;
+    });
+    
     if (imageFiles.length === 0) {
-      alert("請選擇圖片檔");
+      alert("請選擇有效的圖片檔（JPEG、PNG、GIF、WebP、SVG）");
       return;
     }
 
-    // 檢查檔案大小
-    const oversized = imageFiles.filter((f: File) => f.size > 1024 * 1024 * 2);
+    // 驗證檔案大小
+    const oversized = imageFiles.filter((f: File) => !isValidFileSize(f.size, 2));
     if (oversized.length > 0) {
       alert(`以下圖片超過 2MB，將被跳過：${oversized.map((f: File) => f.name).join(", ")}`);
     }
 
-    const validFiles = imageFiles.filter((f: File) => f.size <= 1024 * 1024 * 2);
+    const validFiles = imageFiles.filter((f: File) => isValidFileSize(f.size, 2));
     if (validFiles.length === 0) return;
 
     // 轉換所有圖片為 data URL
@@ -1027,6 +1103,20 @@ function CreateAppModal({
     for (const file of validFiles) {
       try {
         const dataUrl = await fileToDataUrl(file);
+        
+        // 驗證 Data URL 格式
+        if (!isValidDataUrl(dataUrl)) {
+          console.error(`檔案 ${file.name} 的 Data URL 格式無效`);
+          continue;
+        }
+        
+        // 驗證圖片內容
+        const isValid = await validateImageFileContent(dataUrl);
+        if (!isValid) {
+          console.error(`檔案 ${file.name} 的圖片內容無效或尺寸過大`);
+          continue;
+        }
+        
         dataUrls.push(dataUrl);
       } catch (error) {
         console.error(`轉換 ${file.name} 失敗:`, error);
@@ -1276,7 +1366,12 @@ function CreateAppModal({
                     target.style.display = "none";
                     const parent = target.parentElement;
                     if (parent) {
-                      parent.innerHTML = '<span class="text-2xl">🧩</span>';
+                      // 使用安全的 DOM 操作，避免 XSS
+                      const fallback = document.createElement('span');
+                      fallback.className = 'text-2xl';
+                      fallback.textContent = '🧩';
+                      parent.innerHTML = '';
+                      parent.appendChild(fallback);
                     }
                   }}
                 />
@@ -1397,9 +1492,40 @@ const AdminLoginModal: React.FC<{
   const [password, setPassword] = React.useState("");
   const [isLoggingIn, setIsLoggingIn] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [loginAttempts, setLoginAttempts] = React.useState(0);
+  const [lockoutUntil, setLockoutUntil] = React.useState<number | null>(null);
+  const [passwordStrength, setPasswordStrength] = React.useState<{ score: number; feedback: string[] } | null>(null);
+
+  // 檢查登入嘗試次數（從 localStorage）
+  React.useEffect(() => {
+    try {
+      const attempts = localStorage.getItem("aijob-login-attempts");
+      const lockout = localStorage.getItem("aijob-login-lockout");
+      if (attempts) {
+        setLoginAttempts(parseInt(attempts, 10));
+      }
+      if (lockout) {
+        const lockoutTime = parseInt(lockout, 10);
+        if (Date.now() < lockoutTime) {
+          setLockoutUntil(lockoutTime);
+        } else {
+          localStorage.removeItem("aijob-login-attempts");
+          localStorage.removeItem("aijob-login-lockout");
+        }
+      }
+    } catch {}
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // 檢查鎖定狀態
+    if (lockoutUntil && Date.now() < lockoutUntil) {
+      const remaining = Math.ceil((lockoutUntil - Date.now()) / 1000);
+      setError(`帳號已鎖定，請在 ${remaining} 秒後再試`);
+      return;
+    }
+
     if (!password.trim()) {
       setError("請輸入密碼");
       return;
@@ -1410,10 +1536,33 @@ const AdminLoginModal: React.FC<{
 
     const success = await onLogin(password);
     if (!success) {
-      setError("密碼錯誤，請重試");
+      // 增加失敗次數
+      const newAttempts = loginAttempts + 1;
+      setLoginAttempts(newAttempts);
+      
+      try {
+        localStorage.setItem("aijob-login-attempts", newAttempts.toString());
+        
+        // 如果失敗 5 次，鎖定 15 分鐘
+        if (newAttempts >= 5) {
+          const lockoutTime = Date.now() + 15 * 60 * 1000; // 15 分鐘
+          setLockoutUntil(lockoutTime);
+          localStorage.setItem("aijob-login-lockout", lockoutTime.toString());
+          setError("登入失敗次數過多，帳號已鎖定 15 分鐘");
+        } else {
+          setError(`密碼錯誤，請重試（剩餘 ${5 - newAttempts} 次機會）`);
+        }
+      } catch {}
+      
       setIsLoggingIn(false);
     } else {
+      // 登入成功，清除失敗記錄
       setPassword("");
+      setLoginAttempts(0);
+      try {
+        localStorage.removeItem("aijob-login-attempts");
+        localStorage.removeItem("aijob-login-lockout");
+      } catch {}
     }
   };
 
@@ -1454,8 +1603,16 @@ const AdminLoginModal: React.FC<{
               type="password"
               value={password}
               onChange={(e) => {
-                setPassword(e.target.value);
+                const newPassword = e.target.value;
+                setPassword(newPassword);
                 setError(null);
+                // 即時檢查密碼強度（僅在輸入時顯示，不阻止登入）
+                if (newPassword.length > 0) {
+                  const strength = validatePasswordStrength(newPassword);
+                  setPasswordStrength(strength);
+                } else {
+                  setPasswordStrength(null);
+                }
               }}
               placeholder="請輸入密碼"
               className={`w-full rounded-lg border px-3 py-2 text-sm ${
@@ -1466,10 +1623,46 @@ const AdminLoginModal: React.FC<{
                   : "border-slate-200 bg-white text-slate-700 focus:border-indigo-500 focus:ring-indigo-500"
               } focus:outline-none focus:ring-2`}
               autoFocus
-              disabled={isLoggingIn}
+              disabled={isLoggingIn || (lockoutUntil !== null && Date.now() < lockoutUntil)}
             />
             {error && (
               <p className="text-xs text-rose-500 mt-1">{error}</p>
+            )}
+            {lockoutUntil && Date.now() < lockoutUntil && (
+              <p className="text-xs text-amber-500 mt-1">
+                ⚠️ 帳號已鎖定，請在 {Math.ceil((lockoutUntil - Date.now()) / 1000)} 秒後再試
+              </p>
+            )}
+            {loginAttempts > 0 && loginAttempts < 5 && (
+              <p className="text-xs text-amber-500 mt-1">
+                ⚠️ 登入失敗 {loginAttempts} 次，剩餘 {5 - loginAttempts} 次機會
+              </p>
+            )}
+            {passwordStrength && password.length > 0 && (
+              <div className="mt-2">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="flex-1 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full transition-all ${
+                        passwordStrength.score >= 80 ? 'bg-green-500' :
+                        passwordStrength.score >= 60 ? 'bg-yellow-500' :
+                        passwordStrength.score >= 40 ? 'bg-orange-500' : 'bg-red-500'
+                      }`}
+                      style={{ width: `${passwordStrength.score}%` }}
+                    />
+                  </div>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                    {passwordStrength.score}/100
+                  </span>
+                </div>
+                {passwordStrength.feedback.length > 0 && (
+                  <ul className="text-xs text-slate-500 dark:text-slate-400 mt-1 space-y-0.5">
+                    {passwordStrength.feedback.slice(0, 3).map((msg, idx) => (
+                      <li key={idx}>• {msg}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             )}
           </div>
 
@@ -1488,14 +1681,14 @@ const AdminLoginModal: React.FC<{
             </button>
             <button
               type="submit"
-              disabled={isLoggingIn || !password.trim()}
+              disabled={isLoggingIn || !password.trim() || (lockoutUntil !== null && Date.now() < lockoutUntil)}
               className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                isLoggingIn || !password.trim()
+                isLoggingIn || !password.trim() || (lockoutUntil !== null && Date.now() < lockoutUntil)
                   ? "bg-slate-300 cursor-not-allowed text-slate-500"
                   : "bg-indigo-600 hover:bg-indigo-700 text-white"
               }`}
             >
-              {isLoggingIn ? "登入中..." : "登入"}
+              {isLoggingIn ? "登入中..." : (lockoutUntil !== null && Date.now() < lockoutUntil) ? "已鎖定" : "登入"}
             </button>
           </div>
         </form>

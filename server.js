@@ -1,12 +1,20 @@
 /**
  * 整合伺服器：同時提供前端靜態檔案和後端 API
  * 用於 Zeabur 部署（前後端同一個服務）
+ * 已加強安全防護
  */
 
 const express = require('express');
 const fs = require('fs').promises;
 const path = require('path');
 const crypto = require('crypto');
+const { 
+  auditLogger, 
+  advancedRateLimiter, 
+  checkIPWhitelist, 
+  detectSSRF, 
+  sanitizeJsonData 
+} = require('./server-security');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -17,16 +25,72 @@ const ADMIN_SECRET = process.env.ADMIN_SECRET || '';
 // 所以 catalog.json 實際位置是 dist/catalog.json
 const CATALOG_FILE_PATH = process.env.CATALOG_FILE_PATH || path.join(__dirname, 'dist/catalog.json');
 
+// 允許的來源（從環境變數讀取，預設為當前域名）
+const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS 
+  ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+  : [];
+
+// IP 白名單（可選，用於限制管理員 API 訪問）
+const IP_WHITELIST = process.env.IP_WHITELIST
+  ? process.env.IP_WHITELIST.split(',').map(ip => ip.trim())
+  : [];
+
+// Rate Limiting 儲存（簡單記憶體儲存，生產環境應使用 Redis）
+const rateLimitStore = new Map();
+
 // 中間件
 app.use(express.json({ limit: '10mb' }));
 
-// CORS 設定
+// 安全標頭
+app.use((req, res, next) => {
+  // Content Security Policy
+  res.setHeader('Content-Security-Policy', 
+    "default-src 'self'; " +
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " + // 需要 unsafe-inline 和 unsafe-eval 給 Vite
+    "style-src 'self' 'unsafe-inline'; " +
+    "img-src 'self' data: https: http:; " +
+    "font-src 'self' data:; " +
+    "connect-src 'self' https:; " +
+    "frame-ancestors 'none'; " +
+    "base-uri 'self';"
+  );
+  
+  // 其他安全標頭
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+  
+  next();
+});
+
+// CORS 設定（加強版）
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  res.header('Access-Control-Allow-Origin', origin || '*');
+  
+  // 如果設定了允許的來源，只允許這些來源
+  if (ALLOWED_ORIGINS.length > 0) {
+    if (origin && ALLOWED_ORIGINS.includes(origin)) {
+      res.header('Access-Control-Allow-Origin', origin);
+    } else {
+      // 如果來源不在允許列表中，檢查是否是同源請求
+      const host = req.headers.host;
+      if (!origin || origin.includes(host)) {
+        res.header('Access-Control-Allow-Origin', origin || '*');
+      } else {
+        return res.status(403).json({ error: '來源不被允許' });
+      }
+    }
+  } else {
+    // 如果沒有設定，使用原來的邏輯（允許同源或任何來源）
+    res.header('Access-Control-Allow-Origin', origin || '*');
+  }
+  
   res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Max-Age', '86400'); // 24 小時
   
   if (req.method === 'OPTIONS') {
     return res.sendStatus(200);
@@ -34,15 +98,76 @@ app.use((req, res, next) => {
   next();
 });
 
+// Rate Limiting 中間件
+function rateLimit(maxRequests = 10, windowMs = 60000) {
+  return (req, res, next) => {
+    const key = req.ip || req.connection.remoteAddress;
+    const now = Date.now();
+    
+    if (!rateLimitStore.has(key)) {
+      rateLimitStore.set(key, { count: 1, resetTime: now + windowMs });
+      return next();
+    }
+    
+    const record = rateLimitStore.get(key);
+    
+    if (now > record.resetTime) {
+      record.count = 1;
+      record.resetTime = now + windowMs;
+      return next();
+    }
+    
+    if (record.count >= maxRequests) {
+      return res.status(429).json({ 
+        error: '請求過於頻繁，請稍後再試',
+        retryAfter: Math.ceil((record.resetTime - now) / 1000)
+      });
+    }
+    
+    record.count++;
+    next();
+  };
+}
+
+// 清理過期的 Rate Limit 記錄（每 5 分鐘）
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, record] of rateLimitStore.entries()) {
+    if (now > record.resetTime) {
+      rateLimitStore.delete(key);
+    }
+  }
+}, 5 * 60 * 1000);
+
 // SHA-256 雜湊函數
 function sha256Hex(text) {
   return crypto.createHash('sha256').update(text).digest('hex');
 }
 
-// 驗證 Admin 權限
+// 驗證 Admin 權限（加強版）
 function verifyAdmin(req, res, next) {
-  console.log(`\n🔐 [${new Date().toISOString()}] 收到 API 請求: ${req.method} ${req.path}`);
-  console.log('📋 Headers:', JSON.stringify(req.headers, null, 2));
+  const ip = req.ip || req.connection.remoteAddress || 'unknown';
+  const userAgent = req.headers['user-agent'] || 'unknown';
+  
+  // 記錄安全審計日誌
+  auditLogger.log('ADMIN_API_REQUEST', {
+    ip,
+    method: req.method,
+    path: req.path,
+    userAgent: userAgent.substring(0, 100)
+  });
+  
+  // 檢查 IP 白名單（如果設定）
+  if (IP_WHITELIST.length > 0 && !checkIPWhitelist(req, IP_WHITELIST)) {
+    auditLogger.log('ADMIN_ACCESS_DENIED_IP', { ip, path: req.path });
+    return res.status(403).json({ error: 'IP 地址不在允許列表中' });
+  }
+  
+  // 檢查是否為可疑 IP
+  if (advancedRateLimiter.isSuspicious(ip)) {
+    auditLogger.log('SUSPICIOUS_IP_ATTEMPT', { ip, path: req.path });
+    return res.status(429).json({ error: '請求被拒絕，請稍後再試' });
+  }
   
   const authHeader = req.headers.authorization;
   
@@ -59,19 +184,106 @@ function verifyAdmin(req, res, next) {
   }
 
   const token = authHeader.substring(7);
+  
+  // 驗證 token 長度（防止異常輸入）
+  if (token.length > 1000) {
+    console.error('❌ 錯誤：授權令牌過長');
+    return res.status(400).json({ error: '無效的授權令牌' });
+  }
+  
   const tokenHash = sha256Hex(token);
   const secretHash = sha256Hex(ADMIN_SECRET);
 
-  console.log('🔑 Token Hash:', tokenHash.substring(0, 16) + '...');
-  console.log('🔑 Secret Hash:', secretHash.substring(0, 16) + '...');
-
-  if (tokenHash !== secretHash) {
-    console.error('❌ 錯誤：無效的授權令牌');
-    return res.status(403).json({ error: '無效的授權令牌' });
+  // 使用時間安全比較（防止時間攻擊）
+  let result = 0;
+  if (tokenHash.length !== secretHash.length) {
+    result = 1;
+  } else {
+    for (let i = 0; i < tokenHash.length; i++) {
+      result |= tokenHash.charCodeAt(i) ^ secretHash.charCodeAt(i);
+    }
   }
 
-  console.log('✅ 授權驗證通過');
+  if (result !== 0) {
+    auditLogger.log('ADMIN_AUTH_FAILED', {
+      ip,
+      path: req.path,
+      reason: '無效的授權令牌'
+    });
+    // 延遲回應（防止時間攻擊分析）
+    setTimeout(() => {
+      res.status(403).json({ error: '無效的授權令牌' });
+    }, 100 + Math.random() * 100);
+    return;
+  }
+
+  auditLogger.log('ADMIN_AUTH_SUCCESS', { ip, path: req.path });
   next();
+}
+
+// 驗證 Catalog 資料
+function validateCatalogData(catalog) {
+  if (!catalog || typeof catalog !== 'object') {
+    return { valid: false, error: '無效的 catalog 格式' };
+  }
+
+  // 清理 JSON 資料（防止深度嵌套攻擊）
+  try {
+    catalog = sanitizeJsonData(catalog);
+  } catch (error) {
+    return { valid: false, error: '資料結構無效：' + error.message };
+  }
+
+  if (!Array.isArray(catalog.categories)) {
+    return { valid: false, error: 'categories 必須是陣列' };
+  }
+
+  if (!Array.isArray(catalog.apps)) {
+    return { valid: false, error: 'apps 必須是陣列' };
+  }
+
+  // 限制大小
+  if (catalog.categories.length > 50) {
+    return { valid: false, error: '分類數量過多（最多 50 個）' };
+  }
+
+  if (catalog.apps.length > 500) {
+    return { valid: false, error: '應用程式數量過多（最多 500 個）' };
+  }
+
+  // 驗證每個應用程式
+  for (let i = 0; i < catalog.apps.length; i++) {
+    const app = catalog.apps[i];
+    if (!app.name || typeof app.name !== 'string' || app.name.length > 100) {
+      return { valid: false, error: `應用程式 ${i + 1} 的名稱無效` };
+    }
+    if (!app.href || typeof app.href !== 'string' || app.href.length > 500) {
+      return { valid: false, error: `應用程式 ${i + 1} 的連結無效` };
+    }
+    
+    // SSRF 防護：檢查 URL
+    const ssrfCheck = detectSSRF(app.href);
+    if (ssrfCheck.isSSRF) {
+      auditLogger.log('SSRF_ATTEMPT_DETECTED', {
+        url: app.href,
+        reason: ssrfCheck.reason,
+        appName: app.name
+      });
+      return { valid: false, error: `應用程式 ${i + 1} 的連結不安全（${ssrfCheck.reason}）` };
+    }
+    
+    // 驗證 URL
+    try {
+      const url = new URL(app.href.startsWith('http') ? app.href : `https://${app.href}`);
+      if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+        return { valid: false, error: `應用程式 ${i + 1} 的連結協議無效` };
+      }
+    } catch {
+      return { valid: false, error: `應用程式 ${i + 1} 的連結格式無效` };
+    }
+  }
+
+  return { valid: true };
 }
 
 // API 路由（必須在靜態檔案之前）
@@ -83,50 +295,90 @@ app.options('/api/catalog', (req, res) => {
   res.sendStatus(200);
 });
 
-app.get('/api/catalog', async (req, res) => {
-  console.log(`\n📖 [${new Date().toISOString()}] GET /api/catalog`);
+app.get('/api/catalog', (req, res, next) => {
+  // 使用進階 Rate Limiting
+  const rateLimitCheck = advancedRateLimiter.check(req, 30, 60000, '/api/catalog');
+  if (!rateLimitCheck.allowed) {
+    return res.status(429).json({ 
+      error: rateLimitCheck.reason || '請求過於頻繁，請稍後再試',
+      retryAfter: rateLimitCheck.retryAfter
+    });
+  }
+  next();
+}, async (req, res) => {
+  auditLogger.log('CATALOG_READ', {
+    ip: req.ip || req.connection.remoteAddress
+  });
+  
   try {
     const data = await fs.readFile(CATALOG_FILE_PATH, 'utf8');
     const catalog = JSON.parse(data);
-    console.log(`✅ 成功讀取 catalog: ${catalog.categories?.length || 0} 分類, ${catalog.apps?.length || 0} 應用程式`);
+    auditLogger.log('CATALOG_READ_SUCCESS', {
+      categories: catalog.categories?.length || 0,
+      apps: catalog.apps?.length || 0
+    });
     res.json(catalog);
   } catch (error) {
     if (error.code === 'ENOENT') {
-      console.error('❌ catalog.json 不存在:', CATALOG_FILE_PATH);
+      auditLogger.log('CATALOG_READ_FAILED', { error: '檔案不存在' });
       res.status(404).json({ error: 'catalog.json 不存在' });
     } else {
-      console.error('❌ 讀取 catalog 失敗:', error);
+      auditLogger.log('CATALOG_READ_FAILED', { error: error.message });
       res.status(500).json({ error: '讀取 catalog 失敗' });
     }
   }
 });
 
-app.post('/api/catalog', verifyAdmin, async (req, res) => {
+app.post('/api/catalog', (req, res, next) => {
+  // 使用進階 Rate Limiting
+  const rateLimitCheck = advancedRateLimiter.check(req, 5, 60000, '/api/catalog');
+  if (!rateLimitCheck.allowed) {
+    return res.status(429).json({ 
+      error: rateLimitCheck.reason || '請求過於頻繁，請稍後再試',
+      retryAfter: rateLimitCheck.retryAfter
+    });
+  }
+  next();
+}, verifyAdmin, async (req, res) => {
   try {
+    // 驗證請求體大小
+    const contentLength = req.get('content-length');
+    if (contentLength && parseInt(contentLength) > 10 * 1024 * 1024) {
+      return res.status(413).json({ error: '請求體過大（最大 10MB）' });
+    }
+
     console.log('📦 收到 catalog 資料:', {
       categories: req.body?.categories?.length || 0,
       apps: req.body?.apps?.length || 0
     });
 
-    const catalog = req.body;
-
-    if (!catalog || !Array.isArray(catalog.categories) || !Array.isArray(catalog.apps)) {
-      console.error('❌ 無效的 catalog 格式');
+    // 驗證資料格式
+    const validation = validateCatalogData(req.body);
+    if (!validation.valid) {
+      console.error('❌ 驗證失敗:', validation.error);
       return res.status(400).json({ 
-        error: '無效的 catalog 格式，需要包含 categories 和 apps 陣列' 
+        error: validation.error || '無效的 catalog 格式'
       });
     }
+
+    const catalog = req.body;
 
     // 確保目錄存在
     const dir = path.dirname(CATALOG_FILE_PATH);
     await fs.mkdir(dir, { recursive: true });
     console.log('📁 目錄已確保存在:', dir);
 
-    // 寫入檔案
+    // 寫入檔案（使用原子寫入）
     const catalogJson = JSON.stringify(catalog, null, 2);
-    await fs.writeFile(CATALOG_FILE_PATH, catalogJson, 'utf8');
-    console.log(`✅ Catalog 已寫入檔案: ${CATALOG_FILE_PATH}`);
-    console.log(`📊 包含 ${catalog.categories.length} 個分類，${catalog.apps.length} 個應用程式`);
+    const tempPath = CATALOG_FILE_PATH + '.tmp';
+    await fs.writeFile(tempPath, catalogJson, 'utf8');
+    await fs.rename(tempPath, CATALOG_FILE_PATH);
+    
+    auditLogger.log('CATALOG_UPDATE_SUCCESS', {
+      ip: req.ip || req.connection.remoteAddress,
+      categories: catalog.categories.length,
+      apps: catalog.apps.length
+    });
 
     res.json({ 
       success: true, 
@@ -138,11 +390,10 @@ app.post('/api/catalog', verifyAdmin, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('❌ 更新 catalog 失敗:', error);
-    console.error('錯誤堆疊:', error.stack);
+    console.error('❌ 更新 catalog 失敗:', error.message);
     res.status(500).json({ 
       error: '更新 catalog 失敗',
-      details: error.message 
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
@@ -152,7 +403,7 @@ app.get('/health', (req, res) => {
   res.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
-    catalogPath: CATALOG_FILE_PATH 
+    catalogPath: CATALOG_FILE_PATH.replace(/\/[^/]+$/, '/***') // 隱藏完整路徑
   });
 });
 
@@ -173,19 +424,22 @@ app.get('*', (req, res, next) => {
 
 // 錯誤處理
 app.use((err, req, res, next) => {
-  console.error('伺服器錯誤:', err);
-  res.status(500).json({ error: '伺服器內部錯誤' });
+  console.error('伺服器錯誤:', err.message);
+  res.status(500).json({ 
+    error: '伺服器內部錯誤',
+    details: process.env.NODE_ENV === 'development' ? err.message : undefined
+  });
 });
 
 // 啟動伺服器
 app.listen(PORT, () => {
   console.log(`\n${'='.repeat(60)}`);
   console.log(`🚀 整合伺服器運行在 http://localhost:${PORT}`);
-  console.log(`📁 Catalog 檔案路徑: ${CATALOG_FILE_PATH}`);
+  console.log(`📁 Catalog 檔案路徑: ${CATALOG_FILE_PATH.replace(/\/[^/]+$/, '/***')}`);
   console.log(`🔐 Admin 驗證: ${ADMIN_SECRET ? '已設定 ✓' : '❌ 未設定（將拒絕所有請求）'}`);
+  console.log(`🛡️ 安全防護: Rate Limiting, CSP, CORS 已啟用`);
   console.log(`📡 API 端點: POST /api/catalog`);
   console.log(`📡 API 端點: GET /api/catalog`);
   console.log(`🏥 健康檢查: GET /health`);
   console.log(`${'='.repeat(60)}\n`);
 });
-

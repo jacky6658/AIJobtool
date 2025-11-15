@@ -1,4 +1,6 @@
 import React from "react";
+import { sanitizeAppName, sanitizeDescription, sanitizeCategoryName, sanitizeTags, isValidUrl } from "../utils/security";
+import { isValidImageMime, isValidFileSize, isValidDataUrl, validateImageFileContent } from "../utils/advancedSecurity";
 
 /** ========= 型別定義 ========= */
 type Category = string;
@@ -80,6 +82,32 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   };
 
   const handleSaveApp = async (app: App) => {
+    // 輸入驗證和清理
+    if (!app.name || !app.name.trim()) {
+      onShowToast("應用程式名稱不能為空");
+      return;
+    }
+
+    if (!app.href || !app.href.trim()) {
+      onShowToast("應用程式連結不能為空");
+      return;
+    }
+
+    if (!isValidUrl(app.href)) {
+      onShowToast("應用程式連結格式無效");
+      return;
+    }
+
+    // 清理輸入
+    const sanitizedApp: App = {
+      name: sanitizeAppName(app.name),
+      href: app.href.trim(),
+      icon: app.icon || "🧩",
+      category: sanitizeCategoryName(app.category),
+      description: sanitizeDescription(app.description || ""),
+      tags: sanitizeTags(app.tags || []),
+    };
+
     const isEdit = catalog.apps.some(
       (a) => a.name === editingApp?.name && a.href === editingApp?.href
     );
@@ -90,14 +118,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       newCatalog = {
         ...catalog,
         apps: catalog.apps.map((a) =>
-          a.name === editingApp.name && a.href === editingApp.href ? app : a
+          a.name === editingApp.name && a.href === editingApp.href ? sanitizedApp : a
         ),
       };
     } else {
       // 新增模式：添加新應用
       newCatalog = {
         ...catalog,
-        apps: [...catalog.apps, app],
+        apps: [...catalog.apps, sanitizedApp],
       };
     }
 
@@ -177,6 +205,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     const name = newCategoryName.trim();
     if (!name) return;
 
+    // 驗證和清理分類名稱
+    const sanitizedName = sanitizeCategoryName(name);
+    if (!sanitizedName) {
+      onShowToast("分類名稱無效");
+      return;
+    }
+
     const isEdit = editingCategory !== null && editingCategory !== "";
 
     if (isEdit && editingCategory) {
@@ -213,14 +248,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       }
     } else {
       // 新增模式：添加新分類
-      if (catalog.categories.includes(name)) {
-        alert("此分類名稱已存在");
+      if (catalog.categories.includes(sanitizedName)) {
+        onShowToast("此分類名稱已存在");
         return;
       }
 
       const newCatalog = {
         ...catalog,
-        categories: [...catalog.categories, name],
+        categories: [...catalog.categories, sanitizedName],
       };
       onCatalogChange(newCatalog);
       setNewCategoryName("");
@@ -860,24 +895,47 @@ const AppEditorModal: React.FC<{
     if (!files || files.length === 0) return;
 
     const fileList = Array.from(files) as File[];
-    const imageFiles = fileList.filter((f: File) => f.type.startsWith("image/"));
+    
+    // 驗證 MIME 類型
+    const imageFiles = fileList.filter((f: File) => {
+      if (!isValidImageMime(f.type)) {
+        return false;
+      }
+      return true;
+    });
+    
     if (imageFiles.length === 0) {
-      alert("請選擇圖片檔");
+      alert("請選擇有效的圖片檔（JPEG、PNG、GIF、WebP、SVG）");
       return;
     }
 
-    const oversized = imageFiles.filter((f: File) => f.size > 1024 * 1024 * 2);
+    // 驗證檔案大小
+    const oversized = imageFiles.filter((f: File) => !isValidFileSize(f.size, 2));
     if (oversized.length > 0) {
       alert(`以下圖片超過 2MB，將被跳過：${oversized.map((f: File) => f.name).join(", ")}`);
     }
 
-    const validFiles = imageFiles.filter((f: File) => f.size <= 1024 * 1024 * 2);
+    const validFiles = imageFiles.filter((f: File) => isValidFileSize(f.size, 2));
     if (validFiles.length === 0) return;
 
     const dataUrls: string[] = [];
     for (const file of validFiles) {
       try {
         const dataUrl = await fileToDataUrl(file);
+        
+        // 驗證 Data URL 格式
+        if (!isValidDataUrl(dataUrl)) {
+          console.error(`檔案 ${file.name} 的 Data URL 格式無效`);
+          continue;
+        }
+        
+        // 驗證圖片內容
+        const isValid = await validateImageFileContent(dataUrl);
+        if (!isValid) {
+          console.error(`檔案 ${file.name} 的圖片內容無效或尺寸過大`);
+          continue;
+        }
+        
         dataUrls.push(dataUrl);
       } catch (error) {
         console.error(`轉換 ${file.name} 失敗:`, error);
@@ -1028,7 +1086,12 @@ const AppEditorModal: React.FC<{
                     target.style.display = "none";
                     const parent = target.parentElement;
                     if (parent) {
-                      parent.innerHTML = '<span class="text-2xl">🧩</span>';
+                      // 使用安全的 DOM 操作，避免 XSS
+                      const fallback = document.createElement('span');
+                      fallback.className = 'text-2xl';
+                      fallback.textContent = '🧩';
+                      parent.innerHTML = '';
+                      parent.appendChild(fallback);
                     }
                   }}
                 />
