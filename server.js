@@ -13,7 +13,9 @@ const PORT = process.env.PORT || 8080;
 
 // 環境變數
 const ADMIN_SECRET = process.env.ADMIN_SECRET || '';
-const CATALOG_FILE_PATH = process.env.CATALOG_FILE_PATH || path.join(__dirname, 'public/catalog.json');
+// 在 Zeabur 部署時，public/ 目錄的內容會被 Vite 複製到 dist/ 根目錄
+// 所以 catalog.json 實際位置是 dist/catalog.json
+const CATALOG_FILE_PATH = process.env.CATALOG_FILE_PATH || path.join(__dirname, 'dist/catalog.json');
 
 // 中間件
 app.use(express.json({ limit: '10mb' }));
@@ -73,6 +75,14 @@ function verifyAdmin(req, res, next) {
 }
 
 // API 路由（必須在靜態檔案之前）
+// 先處理 OPTIONS 請求（CORS preflight）
+app.options('/api/catalog', (req, res) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.sendStatus(200);
+});
+
 app.get('/api/catalog', async (req, res) => {
   console.log(`\n📖 [${new Date().toISOString()}] GET /api/catalog`);
   try {
@@ -147,10 +157,17 @@ app.get('/health', (req, res) => {
 });
 
 // 靜態檔案（必須在最後，作為 fallback）
-app.use(express.static('dist'));
+app.use(express.static('dist', {
+  // 排除 API 路由
+  index: false
+}));
 
-// SPA fallback：所有其他路由都返回 index.html
-app.get('*', (req, res) => {
+// SPA fallback：所有其他 GET 請求都返回 index.html（排除 API 路由）
+app.get('*', (req, res, next) => {
+  // 如果是 API 路由，返回 404
+  if (req.path.startsWith('/api/')) {
+    return res.status(404).json({ error: 'API 路由不存在' });
+  }
   res.sendFile(path.join(__dirname, 'dist/index.html'));
 });
 
