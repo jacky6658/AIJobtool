@@ -76,11 +76,12 @@ app.use((req, res, next) => {
   // Content Security Policy
   res.setHeader('Content-Security-Policy', 
     "default-src 'self'; " +
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " + // 需要 unsafe-inline 和 unsafe-eval 給 Vite
-    "style-src 'self' 'unsafe-inline'; " +
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com; " + // 允許 Tailwind CDN
+    "style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; " + // 允許 Tailwind CDN 樣式
     "img-src 'self' data: https: http:; " +
-    "font-src 'self' data:; " +
+    "font-src 'self' data: https:; " +
     "connect-src 'self' https:; " +
+    "frame-src 'self' https://www.youtube.com https://youtube.com; " + // 允許 YouTube iframe
     "frame-ancestors 'none'; " +
     "base-uri 'self';"
   );
@@ -341,21 +342,55 @@ app.get('/api/catalog', (req, res, next) => {
   });
   
   try {
-    const data = await fs.readFile(CATALOG_FILE_PATH, 'utf8');
-    const catalog = JSON.parse(data);
-    auditLogger.log('CATALOG_READ_SUCCESS', {
-      categories: catalog.categories?.length || 0,
-      apps: catalog.apps?.length || 0
-    });
-    res.json(catalog);
-  } catch (error) {
-    if (error.code === 'ENOENT') {
-      auditLogger.log('CATALOG_READ_FAILED', { error: '檔案不存在' });
-      res.status(404).json({ error: 'catalog.json 不存在' });
-    } else {
-      auditLogger.log('CATALOG_READ_FAILED', { error: error.message });
-      res.status(500).json({ error: '讀取 catalog 失敗' });
+    // 嘗試多個可能的路徑
+    const possiblePaths = [
+      CATALOG_FILE_PATH,
+      path.join(__dirname, 'dist/catalog.json'),
+      path.join(__dirname, 'public/catalog.json'),
+      path.join(process.cwd(), 'dist/catalog.json'),
+      path.join(process.cwd(), 'public/catalog.json'),
+    ];
+    
+    let catalogData = null;
+    let usedPath = null;
+    
+    for (const filePath of possiblePaths) {
+      try {
+        const data = await fs.readFile(filePath, 'utf8');
+        catalogData = JSON.parse(data);
+        usedPath = filePath;
+        break;
+      } catch (err) {
+        // 繼續嘗試下一個路徑
+        continue;
+      }
     }
+    
+    if (!catalogData) {
+      console.error('❌ 無法找到 catalog.json，嘗試的路徑:', possiblePaths);
+      auditLogger.log('CATALOG_READ_FAILED', { 
+        error: '檔案不存在',
+        triedPaths: possiblePaths.map(p => p.replace(__dirname, '***'))
+      });
+      return res.status(404).json({ 
+        error: 'catalog.json 不存在',
+        triedPaths: possiblePaths.length
+      });
+    }
+    
+    auditLogger.log('CATALOG_READ_SUCCESS', {
+      path: usedPath?.replace(__dirname, '***'),
+      categories: catalogData.categories?.length || 0,
+      apps: catalogData.apps?.length || 0
+    });
+    res.json(catalogData);
+  } catch (error) {
+    console.error('❌ 讀取 catalog 失敗:', error);
+    auditLogger.log('CATALOG_READ_FAILED', { error: error.message });
+    res.status(500).json({ 
+      error: '讀取 catalog 失敗',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 

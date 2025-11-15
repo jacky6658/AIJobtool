@@ -88,14 +88,30 @@
     <link rel="icon" type="image/png" href="https://static.wixstatic.com/media/9705bb_dd62dc9b5ff6496a9a9560ca516f9851~mv2.png" />
 
     <!-- 加入 Tailwind CDN（重點） -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.tailwindcss.com" onerror="console.error('Tailwind CDN 載入失敗')"></script>
     <script>
-      // 如果之後要客製顏色或字體可以在這裡改
-      tailwind.config = {
-        theme: {
-          extend: {},
-        },
-      };
+      // 等待 Tailwind 載入完成後再設定配置
+      (function() {
+        function initTailwind() {
+          if (typeof tailwind !== 'undefined') {
+            // 如果之後要客製顏色或字體可以在這裡改
+            tailwind.config = {
+              theme: {
+                extend: {},
+              },
+            };
+          } else {
+            // 如果 Tailwind 還沒載入，等待一下再試
+            setTimeout(initTailwind, 100);
+          }
+        }
+        // 立即嘗試，如果失敗則等待
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', initTailwind);
+        } else {
+          initTailwind();
+        }
+      })();
     </script>
 
     <!-- 這一段可以保留，確保字型 OK -->
