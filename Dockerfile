@@ -12,7 +12,8 @@ WORKDIR /app
 COPY package*.json ./
 
 # 安裝依賴（包括 devDependencies，因為需要 vite 來建置）
-RUN npm ci
+# 如果有 package-lock.json 使用 npm ci（更快更可靠），否則使用 npm install
+RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
 
 # 複製所有檔案
 COPY . .
