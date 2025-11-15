@@ -220,31 +220,73 @@ const AppLauncherDemo: React.FC = () => {
     try { localStorage.removeItem("aijob-custom-apps"); } catch {}
 
     // 載入公開 catalog.json
-    fetch("/catalog.json", { cache: "no-store" })
-      .then(r => (r.ok ? r.json() : Promise.reject()))
-      .then((data: Catalog) => {
-        if (Array.isArray(data.categories) && Array.isArray(data.apps)) {
-          setCatalog(data);
-          if (!data.categories.includes(activeCategory)) {
-            setActiveCategory(data.categories[0] || "AI員工");
+    // 優先從 API 載入（避免快取問題），失敗時使用靜態檔案
+    const loadCatalog = async () => {
+      try {
+        // 先嘗試從 API 載入（避免瀏覽器快取）
+        const apiEndpoint = CATALOG_API_ENDPOINT || '/api/catalog';
+        const apiResponse = await fetch(apiEndpoint, { 
+          cache: "no-store",
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache'
+          }
+        });
+        
+        if (apiResponse.ok) {
+          const data = await apiResponse.json();
+          if (Array.isArray(data.categories) && Array.isArray(data.apps)) {
+            setCatalog(data);
+            if (!data.categories.includes(activeCategory)) {
+              setActiveCategory(data.categories[0] || "AI員工");
+            }
+            return;
           }
         }
-      })
-      .catch(() => {
-        // 如果公開 catalog.json 載入失敗，檢查是否有 Admin 的草稿版本
-        try {
-          const adminDraft = localStorage.getItem("aijob-admin-catalog-draft");
-          if (adminDraft) {
-            const parsed = JSON.parse(adminDraft);
-            if (Array.isArray(parsed.categories) && Array.isArray(parsed.apps)) {
-              setCatalog(parsed);
-              if (!parsed.categories.includes(activeCategory)) {
-                setActiveCategory(parsed.categories[0] || "AI員工");
-              }
+      } catch (error) {
+        console.warn('API 載入失敗，嘗試靜態檔案:', error);
+      }
+      
+      // API 載入失敗，嘗試靜態檔案（添加時間戳避免快取）
+      try {
+        const staticResponse = await fetch(`/catalog.json?t=${Date.now()}`, { 
+          cache: "no-store",
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache'
+          }
+        });
+        
+        if (staticResponse.ok) {
+          const data = await staticResponse.json();
+          if (Array.isArray(data.categories) && Array.isArray(data.apps)) {
+            setCatalog(data);
+            if (!data.categories.includes(activeCategory)) {
+              setActiveCategory(data.categories[0] || "AI員工");
+            }
+            return;
+          }
+        }
+      } catch (error) {
+        console.warn('靜態檔案載入失敗:', error);
+      }
+      
+      // 都失敗，檢查是否有 Admin 的草稿版本
+      try {
+        const adminDraft = localStorage.getItem("aijob-admin-catalog-draft");
+        if (adminDraft) {
+          const parsed = JSON.parse(adminDraft);
+          if (Array.isArray(parsed.categories) && Array.isArray(parsed.apps)) {
+            setCatalog(parsed);
+            if (!parsed.categories.includes(activeCategory)) {
+              setActiveCategory(parsed.categories[0] || "AI員工");
             }
           }
-        } catch {}
-      });
+        }
+      } catch {}
+    };
+    
+    loadCatalog();
 
     // Admin：1) localStorage 已登入 2) #admin=密語 3) #logout=1
     // 只有在 ADMIN_HASH 有設定時才啟用 Admin 功能

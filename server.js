@@ -21,6 +21,18 @@ const PORT = process.env.PORT || 8080;
 
 // 環境變數
 const ADMIN_SECRET = process.env.ADMIN_SECRET || '';
+const NODE_ENV = process.env.NODE_ENV || 'development';
+const isProduction = NODE_ENV === 'production';
+
+// 啟動時驗證必需環境變數
+if (!ADMIN_SECRET || ADMIN_SECRET.trim() === '') {
+  console.error('\n❌ 嚴重錯誤：ADMIN_SECRET 未設定！');
+  console.error('請在 Zeabur 環境變數中設定 ADMIN_SECRET');
+  console.error('應用程式將無法正常運作\n');
+  if (isProduction) {
+    process.exit(1);
+  }
+}
 // 在 Zeabur 部署時，public/ 目錄的內容會被 Vite 複製到 dist/ 根目錄
 // 所以 catalog.json 實際位置是 dist/catalog.json
 const CATALOG_FILE_PATH = process.env.CATALOG_FILE_PATH || path.join(__dirname, 'dist/catalog.json');
@@ -37,6 +49,18 @@ const IP_WHITELIST = process.env.IP_WHITELIST
 
 // Rate Limiting 儲存（簡單記憶體儲存，生產環境應使用 Redis）
 const rateLimitStore = new Map();
+
+// 強制 HTTPS（生產環境）
+if (isProduction) {
+  app.use((req, res, next) => {
+    // 檢查 X-Forwarded-Proto（Zeabur 使用）
+    const proto = req.headers['x-forwarded-proto'] || req.protocol;
+    if (proto !== 'https' && req.get('host')) {
+      return res.redirect(301, `https://${req.get('host')}${req.url}`);
+    }
+    next();
+  });
+}
 
 // 中間件
 app.use(express.json({ limit: '10mb' }));
@@ -347,10 +371,13 @@ app.post('/api/catalog', (req, res, next) => {
       return res.status(413).json({ error: '請求體過大（最大 10MB）' });
     }
 
-    console.log('📦 收到 catalog 資料:', {
-      categories: req.body?.categories?.length || 0,
-      apps: req.body?.apps?.length || 0
-    });
+    // 只在非生產環境或啟用詳細日誌時記錄
+    if (!isProduction || process.env.ENABLE_VERBOSE_LOGS === 'true') {
+      console.log('📦 收到 catalog 資料:', {
+        categories: req.body?.categories?.length || 0,
+        apps: req.body?.apps?.length || 0
+      });
+    }
 
     // 驗證資料格式
     const validation = validateCatalogData(req.body);
@@ -366,7 +393,10 @@ app.post('/api/catalog', (req, res, next) => {
     // 確保目錄存在
     const dir = path.dirname(CATALOG_FILE_PATH);
     await fs.mkdir(dir, { recursive: true });
-    console.log('📁 目錄已確保存在:', dir);
+    // 只在非生產環境記錄
+    if (!isProduction) {
+      console.log('📁 目錄已確保存在:', dir);
+    }
 
     // 寫入檔案（使用原子寫入）
     const catalogJson = JSON.stringify(catalog, null, 2);
@@ -410,7 +440,15 @@ app.get('/health', (req, res) => {
 // 靜態檔案（必須在最後，作為 fallback）
 app.use(express.static('dist', {
   // 排除 API 路由
-  index: false
+  index: false,
+  // 設定快取控制（避免 catalog.json 被快取）
+  setHeaders: (res, path) => {
+    if (path.endsWith('catalog.json')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+  }
 }));
 
 // SPA fallback：所有其他 GET 請求都返回 index.html（排除 API 路由）
