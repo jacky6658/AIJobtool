@@ -1,4 +1,5 @@
 import React from "react";
+import { AdminPanel } from "./components/AdminPanel";
 
 /** ========= 型別 ========= */
 type Category = string;
@@ -150,6 +151,7 @@ const AppLauncherDemo: React.FC = () => {
   const [isAdmin, setIsAdmin] = React.useState<boolean>(false);
   const [createOpen, setCreateOpen] = React.useState<boolean>(false);
   const [newCategory, setNewCategory] = React.useState<string>("");
+  const [adminPanelOpen, setAdminPanelOpen] = React.useState<boolean>(false);
 
   // 確保 Admin 狀態與環境變數同步（每次渲染時檢查）
   React.useEffect(() => {
@@ -568,13 +570,20 @@ const AppLauncherDemo: React.FC = () => {
 
               <button
                 type="button"
-                onClick={() => setCreateOpen(true)}
+                onClick={() => setAdminPanelOpen(true)}
                 className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 text-white text-sm font-medium px-3 py-2 shadow hover:bg-indigo-700 transition-colors">
-                ➕ 新增應用程式
+                📋 開啟管理面板
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setCreateOpen(true)}
+                className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-slate-600 text-white text-sm font-medium px-3 py-2 shadow hover:bg-slate-700 transition-colors">
+                ➕ 快速新增應用程式
               </button>
 
               <div className="rounded-xl border p-2">
-                <div className="text-xs mb-1 text-slate-500 dark:text-slate-400">新增分類</div>
+                <div className="text-xs mb-1 text-slate-500 dark:text-slate-400">快速新增分類</div>
                 <div className="flex gap-2">
                   <input
                     className="flex-1 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 px-2 py-1 text-sm"
@@ -860,6 +869,29 @@ const AppLauncherDemo: React.FC = () => {
             <span>{toast}</span>
           </div>
         </div>
+      )}
+
+      {/* 管理面板（只有 Admin 且開啟時顯示） */}
+      {isAdmin && adminPanelOpen && (
+        <AdminPanel
+          catalog={catalog}
+          isDark={isDark}
+          onCatalogChange={(newCatalog) => {
+            setCatalog(newCatalog);
+            // 如果當前分類被刪除，切換到第一個分類
+            if (!newCatalog.categories.includes(activeCategory)) {
+              setActiveCategory(newCatalog.categories[0] || "");
+            }
+          }}
+          onSave={async (catalogData) => {
+            // 自動儲存到 localStorage
+            saveCatalogDraft(catalogData);
+            // 嘗試自動上傳到後端 API
+            return await uploadCatalogToAPI(catalogData);
+          }}
+          onShowToast={showToast}
+          onClose={() => setAdminPanelOpen(false)}
+        />
       )}
     </div>
   );
