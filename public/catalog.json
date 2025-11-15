@@ -69,10 +69,10 @@
     },
     {
       "name": "StackBlitz",
-      "icon": "🛠️",
-      "description": "雲端即開即寫的前端開發環境，支援 Vite/Next 等。",
       "href": "https://stackblitz.com/",
+      "icon": "https://www.google.com/s2/favicons?domain=stackblitz.com&sz=128",
       "category": "AI寫程式工具",
+      "description": "雲端即開即寫的前端開發環境，支援 Vite/Next 等。",
       "tags": [
         "前端",
         "線上IDE",
@@ -81,10 +81,10 @@
     },
     {
       "name": "Codesandbox",
-      "icon": "🧰",
-      "description": "線上沙盒環境，快速建立 React/Vue 專案範本。",
       "href": "https://codesandbox.io/",
+      "icon": "https://www.google.com/s2/favicons?domain=codesandbox.io&sz=128",
       "category": "AI寫程式工具",
+      "description": "線上沙盒環境，快速建立 React/Vue 專案範本。",
       "tags": [
         "沙盒",
         "模板",
@@ -93,10 +93,10 @@
     },
     {
       "name": "GitHub Codespaces",
-      "icon": "💻",
-      "description": "雲端 VS Code 開發環境，整合 GitHub 專案。",
       "href": "https://github.com/features/codespaces",
+      "icon": "https://www.google.com/s2/favicons?domain=github.com&sz=128",
       "category": "AI寫程式工具",
+      "description": "雲端 VS Code 開發環境，整合 GitHub 專案。",
       "tags": [
         "雲端IDE",
         "GitHub"
@@ -104,10 +104,10 @@
     },
     {
       "name": "Zeabur",
-      "icon": "🟦",
-      "description": "一鍵自動化部署，支援 Node/Static/DB 等服務。",
       "href": "https://zeabur.com",
+      "icon": "https://www.google.com/s2/favicons?domain=zeabur.com&sz=128",
       "category": "部署平台",
+      "description": "一鍵自動化部署，支援 Node/Static/DB 等服務。",
       "tags": [
         "Serverless",
         "自動部署",
@@ -116,10 +116,10 @@
     },
     {
       "name": "Vercel",
-      "icon": "▲",
-      "description": "前端友善的 Serverless 平台，Next.js 官方好夥伴。",
       "href": "https://vercel.com/",
+      "icon": "https://www.google.com/s2/favicons?domain=vercel.com&sz=128",
       "category": "部署平台",
+      "description": "前端友善的 Serverless 平台，Next.js 官方好夥伴。",
       "tags": [
         "Serverless",
         "Edge",
@@ -128,10 +128,10 @@
     },
     {
       "name": "Netlify",
-      "icon": "🌿",
-      "description": "靜態網站與函式部署，CI/CD 內建。",
       "href": "https://www.netlify.com/",
+      "icon": "https://www.google.com/s2/favicons?domain=www.netlify.com&sz=128",
       "category": "部署平台",
+      "description": "靜態網站與函式部署，CI/CD 內建。",
       "tags": [
         "靜態",
         "Functions",
