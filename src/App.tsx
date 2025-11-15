@@ -1,5 +1,7 @@
 import React from "react";
 import { AdminPanel } from "./components/AdminPanel";
+import { LoadingAnimation } from "./components/LoadingAnimation";
+import { HomePage } from "./components/HomePage";
 import { sanitizeAppName, sanitizeDescription, sanitizeCategoryName, sanitizeTags, isValidUrl, validateCatalog } from "./utils/security";
 import { isValidImageMime, isValidFileSize, isValidDataUrl, validateImageFileContent, validatePasswordStrength } from "./utils/advancedSecurity";
 
@@ -151,6 +153,10 @@ const AppLauncherDemo: React.FC = () => {
   const [activeTag, setActiveTag] = React.useState<string | null>(null);
   const [toast, setToast] = React.useState<string | null>(null);
   const toastTimeoutRef = React.useRef<number | null>(null);
+
+  // 頁面狀態：載入動畫、首頁/工具庫切換
+  const [showLoading, setShowLoading] = React.useState<boolean>(true);
+  const [currentPage, setCurrentPage] = React.useState<"home" | "tools">("home");
 
   // Admin 狀態 & 管理用暫存
   const [isAdmin, setIsAdmin] = React.useState<boolean>(false);
@@ -567,6 +573,11 @@ const AppLauncherDemo: React.FC = () => {
   };
 
   /** ====== UI ====== */
+  // 顯示載入動畫
+  if (showLoading) {
+    return <LoadingAnimation onComplete={() => setShowLoading(false)} />;
+  }
+
   return (
     <div className={isDark ? "min-h-screen bg-slate-950 text-slate-100 relative overflow-hidden"
                            : "min-h-screen bg-slate-50 text-slate-900 relative overflow-hidden"}>
@@ -607,14 +618,45 @@ const AppLauncherDemo: React.FC = () => {
             </p>
           </div>
 
-          {/* 分類 */}
+          {/* 導航：首頁與分類 */}
           <nav className="space-y-1">
-            {catalog.categories.map((cat) => (
+            {/* 首頁按鈕 */}
+            <button
+              type="button"
+              onClick={() => { setCurrentPage("home"); setSidebarOpen(false); }}
+              className={`w-full flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-150 ${
+                currentPage === "home"
+                  ? "bg-indigo-500/10 text-indigo-500 shadow-sm"
+                  : isDark
+                  ? "text-slate-300 hover:bg-slate-800/80 hover:text-slate-50"
+                  : "text-slate-600 hover:bg-slate-50/80 hover:text-slate-900"
+              }`}>
+              <span className="text-base">🏠</span>
+              <span>首頁</span>
+            </button>
+            
+            {/* 工具庫按鈕 */}
+            <button
+              type="button"
+              onClick={() => { setCurrentPage("tools"); setSidebarOpen(false); }}
+              className={`w-full flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-150 ${
+                currentPage === "tools"
+                  ? "bg-indigo-500/10 text-indigo-500 shadow-sm"
+                  : isDark
+                  ? "text-slate-300 hover:bg-slate-800/80 hover:text-slate-50"
+                  : "text-slate-600 hover:bg-slate-50/80 hover:text-slate-900"
+              }`}>
+              <span className="text-base">🤖</span>
+              <span>AI員工</span>
+            </button>
+
+            {/* 分類（只在工具庫頁面顯示） */}
+            {currentPage === "tools" && catalog.categories.map((cat) => (
               <button
                 key={cat}
                 type="button"
                 onClick={() => { setActiveCategory(cat); setActiveTag(null); setSidebarOpen(false); }}
-                className={`w-full flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-150 ${
+                className={`w-full flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-150 ml-4 ${
                   activeCategory === cat
                     ? "bg-indigo-500/10 text-indigo-500 shadow-sm"
                     : isDark
@@ -741,15 +783,19 @@ const AppLauncherDemo: React.FC = () => {
 
         {/* 主內容 */}
         <main className="flex-1 px-4 sm:px-6 py-6 md:py-8 md:ml-64">
-          <header className="mb-6">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h1 className="text-xl font-semibold">{activeCategory}</h1>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                  點擊下方任一圖示卡片，即可開啟對應工具或頁面。
-                </p>
-              </div>
-              <div className="w-full sm:w-72">
+          {currentPage === "home" ? (
+            <HomePage isDark={isDark} />
+          ) : (
+            <>
+              <header className="mb-6">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h1 className="text-xl font-semibold">{activeCategory}</h1>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                      點擊下方任一圖示卡片，即可開啟對應工具或頁面。
+                    </p>
+                  </div>
+                  <div className="w-full sm:w-72">
                 <div className="relative">
                   <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-400 text-sm">🔍</span>
                   <input
@@ -899,6 +945,8 @@ const AppLauncherDemo: React.FC = () => {
               </div>
             )}
           </section>
+            </>
+          )}
         </main>
       </div>
 
