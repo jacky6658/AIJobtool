@@ -152,6 +152,7 @@ const AppLauncherDemo: React.FC = () => {
   const [createOpen, setCreateOpen] = React.useState<boolean>(false);
   const [newCategory, setNewCategory] = React.useState<string>("");
   const [adminPanelOpen, setAdminPanelOpen] = React.useState<boolean>(false);
+  const [adminLoginOpen, setAdminLoginOpen] = React.useState<boolean>(false);
 
   // 確保 Admin 狀態與環境變數同步（每次渲染時檢查）
   React.useEffect(() => {
@@ -625,6 +626,18 @@ const AppLauncherDemo: React.FC = () => {
             </div>
           )}
 
+          {/* 管理員登入按鈕（未登入時顯示） */}
+          {!isAdmin && ADMIN_HASH && ADMIN_HASH.trim() !== "" && (
+            <div className="mt-4">
+              <button
+                type="button"
+                onClick={() => setAdminLoginOpen(true)}
+                className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 text-xs font-medium px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                🔐 管理員登入
+              </button>
+            </div>
+          )}
+
           <div className="mt-auto pt-6 text-xs text-slate-400 border-t border-slate-100/80 dark:border-slate-800">
             <div className="flex items-center justify-between">
               <span>© {new Date().getFullYear()} AIJob</span>
@@ -891,6 +904,34 @@ const AppLauncherDemo: React.FC = () => {
           }}
           onShowToast={showToast}
           onClose={() => setAdminPanelOpen(false)}
+        />
+      )}
+
+      {/* 管理員登入對話框 */}
+      {adminLoginOpen && (
+        <AdminLoginModal
+          isDark={isDark}
+          onClose={() => setAdminLoginOpen(false)}
+          onLogin={async (password: string) => {
+            if (!ADMIN_HASH || ADMIN_HASH.trim() === "") {
+              showToast("管理員功能未啟用");
+              return false;
+            }
+            const digest = await sha256Hex(password);
+            if (digest === ADMIN_HASH) {
+              try {
+                localStorage.setItem("aijob-admin-hash", ADMIN_HASH);
+                localStorage.setItem("aijob-admin-secret", btoa(password));
+              } catch {}
+              setIsAdmin(true);
+              setAdminLoginOpen(false);
+              showToast("已登入管理員模式 ✓");
+              return true;
+            } else {
+              showToast("密碼錯誤");
+              return false;
+            }
+          }}
         />
       )}
     </div>
@@ -1343,5 +1384,127 @@ function fileToDataUrl(file: File): Promise<string> {
     reader.readAsDataURL(file);
   });
 }
+
+/** ========= 管理員登入對話框 ========= */
+const AdminLoginModal: React.FC<{
+  isDark: boolean;
+  onClose: () => void;
+  onLogin: (password: string) => Promise<boolean>;
+}> = ({ isDark, onClose, onLogin }) => {
+  const [password, setPassword] = React.useState("");
+  const [isLoggingIn, setIsLoggingIn] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!password.trim()) {
+      setError("請輸入密碼");
+      return;
+    }
+
+    setIsLoggingIn(true);
+    setError(null);
+
+    const success = await onLogin(password);
+    if (!success) {
+      setError("密碼錯誤，請重試");
+      setIsLoggingIn(false);
+    } else {
+      setPassword("");
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      <div
+        className={`w-full max-w-md rounded-2xl shadow-2xl p-6 ${
+          isDark ? "bg-slate-900 border border-slate-700" : "bg-white border border-slate-200"
+        }`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-lg font-semibold">🔐 管理員登入</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+              輸入管理員密碼以進入管理模式
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className={`text-slate-400 hover:text-slate-600 dark:hover:text-slate-200`}
+          >
+            ✕
+          </button>
+        </div>
+
+        <form onSubmit={handleLogin} className="space-y-4">
+          <div>
+            <label className="text-sm font-medium block mb-2">管理員密碼</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                setError(null);
+              }}
+              placeholder="請輸入密碼"
+              className={`w-full rounded-lg border px-3 py-2 text-sm ${
+                error
+                  ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500"
+                  : isDark
+                  ? "border-slate-700 bg-slate-800 text-slate-100 focus:border-indigo-500 focus:ring-indigo-500"
+                  : "border-slate-200 bg-white text-slate-700 focus:border-indigo-500 focus:ring-indigo-500"
+              } focus:outline-none focus:ring-2`}
+              autoFocus
+              disabled={isLoggingIn}
+            />
+            {error && (
+              <p className="text-xs text-rose-500 mt-1">{error}</p>
+            )}
+          </div>
+
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isLoggingIn}
+              className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                isDark
+                  ? "bg-slate-700 hover:bg-slate-600 text-slate-100"
+                  : "bg-slate-200 hover:bg-slate-300 text-slate-700"
+              } ${isLoggingIn ? "opacity-50 cursor-not-allowed" : ""}`}
+            >
+              取消
+            </button>
+            <button
+              type="submit"
+              disabled={isLoggingIn || !password.trim()}
+              className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                isLoggingIn || !password.trim()
+                  ? "bg-slate-300 cursor-not-allowed text-slate-500"
+                  : "bg-indigo-600 hover:bg-indigo-700 text-white"
+              }`}
+            >
+              {isLoggingIn ? "登入中..." : "登入"}
+            </button>
+          </div>
+        </form>
+
+        <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            💡 提示：您也可以在網址列輸入 <code className="bg-slate-100 dark:bg-slate-800 px-1 rounded">#admin=你的密碼</code> 來登入
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default AppLauncherDemo;
