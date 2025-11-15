@@ -31,6 +31,9 @@ const ADMIN_HASH = (import.meta.env.VITE_ADMIN_HASH as string) || "";
 /** 從環境變數讀取後端 API endpoint（可選，用於自動上傳 catalog.json） */
 const CATALOG_API_ENDPOINT = (import.meta.env.VITE_CATALOG_API_ENDPOINT as string) || "";
 
+/** 是否顯示管理員登入按鈕（預設為 true，設為 false 可隱藏按鈕，但仍可使用 URL Hash 登入） */
+const SHOW_ADMIN_LOGIN_BUTTON = (import.meta.env.VITE_SHOW_ADMIN_LOGIN as string) !== "false";
+
 /** ========= Fallback（catalog.json 載入失敗時使用） ========= */
 const fallbackCatalog: Catalog = {
   categories: ["AI員工", "AI對話", "AI寫程式工具", "部署平台"],
@@ -626,8 +629,8 @@ const AppLauncherDemo: React.FC = () => {
             </div>
           )}
 
-          {/* 管理員登入按鈕（未登入時顯示） */}
-          {!isAdmin && ADMIN_HASH && ADMIN_HASH.trim() !== "" && (
+          {/* 管理員登入按鈕（未登入時顯示，可透過 VITE_SHOW_ADMIN_LOGIN=false 隱藏） */}
+          {!isAdmin && ADMIN_HASH && ADMIN_HASH.trim() !== "" && SHOW_ADMIN_LOGIN_BUTTON && (
             <div className="mt-4">
               <button
                 type="button"
