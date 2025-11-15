@@ -630,7 +630,7 @@ const AppLauncherDemo: React.FC = () => {
             <div className="text-xs uppercase tracking-wide text-indigo-500 font-semibold">AIJob</div>
             <div className="text-xl font-bold mt-1">AI工具庫</div>
             <p className="mt-2 text-xs text-slate-500 dark:text-slate-400 leading-relaxed px-3">
-              集中管理你的 AI 工具與智能體，從這裡出發啟動工作流程。
+              全站收錄多元且實用的 AI 工具與智能體模型，從新手到專業用戶都能快速找到最適合的解決方案，並全面提升你的工作效率。
             </p>
           </div>
 
@@ -647,40 +647,31 @@ const AppLauncherDemo: React.FC = () => {
                   ? "text-slate-300 hover:bg-slate-800/80 hover:text-slate-50"
                   : "text-slate-600 hover:bg-slate-50/80 hover:text-slate-900"
               }`}>
-              <span className="text-base">🏠</span>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
               <span>首頁</span>
             </button>
             
-            {/* 工具庫按鈕 */}
+            {/* 所有分類都是獨立的按鈕 */}
+            {catalog.categories.map((cat) => (
             <button
+                key={cat}
               type="button"
-              onClick={() => { setCurrentPage("tools"); setSidebarOpen(false); }}
+                onClick={() => { 
+                  setCurrentPage("tools");
+                  setActiveCategory(cat); 
+                  setActiveTag(null); 
+                  setSidebarOpen(false); 
+                }}
               className={`w-full flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-150 ${
-                currentPage === "tools"
+                  currentPage === "tools" && activeCategory === cat
                   ? "bg-indigo-500/10 text-indigo-500 shadow-sm"
                   : isDark
                   ? "text-slate-300 hover:bg-slate-800/80 hover:text-slate-50"
                   : "text-slate-600 hover:bg-slate-50/80 hover:text-slate-900"
               }`}>
-              <span className="text-base">🤖</span>
-              <span>AI員工</span>
-            </button>
-
-            {/* 分類（只在工具庫頁面顯示） */}
-            {currentPage === "tools" && catalog.categories.map((cat) => (
-              <button
-                key={cat}
-                type="button"
-                onClick={() => { setActiveCategory(cat); setActiveTag(null); setSidebarOpen(false); }}
-                className={`w-full flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-150 ml-4 ${
-                  activeCategory === cat
-                    ? "bg-indigo-500/10 text-indigo-500 shadow-sm"
-                    : isDark
-                    ? "text-slate-300 hover:bg-slate-800/80 hover:text-slate-50"
-                    : "text-slate-600 hover:bg-slate-50/80 hover:text-slate-900"}`}>
-                <span className="text-base">
-                  {cat === "AI員工" ? "🤖" : cat === "AI對話" ? "💬" : cat === "AI寫程式工具" ? "🛠️" : "☁️"}
-                </span>
+                {getCategoryIcon(cat)}
                 <span>{cat}</span>
               </button>
             ))}
@@ -778,12 +769,99 @@ const AppLauncherDemo: React.FC = () => {
             </div>
           )}
 
-          <div className="mt-auto pt-6 text-xs text-slate-400 border-t border-slate-100/80 dark:border-slate-800">
+          {/* 社群連結（導航列底部） */}
+          <div className="mt-auto pt-4 border-t border-slate-100/80 dark:border-slate-800">
+            <div className="space-y-1.5">
+              <a
+                href="https://lin.ee/ZTgJbYG"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`w-full flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs transition-colors ${
+                  isDark
+                    ? "text-slate-300 hover:bg-slate-800/80 hover:text-slate-50"
+                    : "text-slate-600 hover:bg-slate-50/80 hover:text-slate-900"
+                }`}
+              >
+                <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63h2.386c.346 0 .627.285.627.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63.346 0 .628.285.628.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.282.629-.63.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.086.766.062 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314"/>
+                </svg>
+                <span>LINE 官方帳號</span>
+              </a>
+              <a
+                href="https://line.me/ti/g2/xaKhtD6TG78lZ8tOLP2T4Lz0zD-edf8GJF8x5w?utm_source=invitation&utm_medium=link_copy&utm_campaign=default"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`w-full flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs transition-colors ${
+                  isDark
+                    ? "text-slate-300 hover:bg-slate-800/80 hover:text-slate-50"
+                    : "text-slate-600 hover:bg-slate-50/80 hover:text-slate-900"
+                }`}
+              >
+                <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+                <span>LINE 社群</span>
+              </a>
+              <a
+                href="https://discord.gg/Dzm2P7rHyg"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`w-full flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs transition-colors ${
+                  isDark
+                    ? "text-slate-300 hover:bg-slate-800/80 hover:text-slate-50"
+                    : "text-slate-600 hover:bg-slate-50/80 hover:text-slate-900"
+                }`}
+              >
+                <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
+                </svg>
+                <span>Discord 社群</span>
+              </a>
+              <a
+                href="https://www.instagram.com/aijobschool/reels/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`w-full flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs transition-colors ${
+                  isDark
+                    ? "text-slate-300 hover:bg-slate-800/80 hover:text-slate-50"
+                    : "text-slate-600 hover:bg-slate-50/80 hover:text-slate-900"
+                }`}
+              >
+                <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                </svg>
+                <span>Instagram</span>
+              </a>
+              <a
+                href="https://www.aijob.com.tw/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`w-full flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs transition-colors ${
+                  isDark
+                    ? "text-slate-300 hover:bg-slate-800/80 hover:text-slate-50"
+                    : "text-slate-600 hover:bg-slate-50/80 hover:text-slate-900"
+                }`}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+                </svg>
+                <span>官方網站</span>
+              </a>
+            </div>
+          </div>
+
+          <div className="mt-4 pt-4 text-xs text-slate-400 border-t border-slate-100/80 dark:border-slate-800">
             <div className="flex items-center justify-between">
               <span>© {new Date().getFullYear()} AIJob</span>
               <button onClick={() => setTheme(isDark ? "light" : "dark")}
                 className="hidden md:inline-flex h-7 w-7 items-center justify-center rounded-full border text-xs hover:border-indigo-400">
-                {isDark ? "🌞" : "🌙"}
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  {isDark ? (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                  ) : (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                  )}
+                </svg>
               </button>
             </div>
           </div>
@@ -1116,12 +1194,56 @@ const AppLauncherDemo: React.FC = () => {
   );
 };
 
+/** ========= 分類圖示 ========= */
+function getCategoryIcon(category: string) {
+  const iconClass = "w-4 h-4";
+  switch (category) {
+    case "AI員工":
+      return (
+        <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+        </svg>
+      );
+    case "AI對話":
+      return (
+        <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+        </svg>
+      );
+    case "AI寫程式工具":
+      return (
+        <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+        </svg>
+      );
+    case "部署平台":
+      return (
+        <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+        </svg>
+      );
+    case "AI 自動化(workflow)":
+      return (
+        <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+      );
+    default:
+      return (
+        <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+        </svg>
+      );
+  }
+}
+
 /** ========= 圖示渲染：emoji / 路徑 / http(s) / data:image ========= */
 function renderIcon(icon: string, alt = "") {
   const isImage =
     typeof icon === "string" &&
     (icon.startsWith("/images/") || icon.startsWith("http") || icon.startsWith("data:image"));
   if (isImage) return <img src={icon} alt={alt} className="h-full w-full object-contain" loading="lazy" />;
+  // 如果是emoji，嘗試轉換為icon或保持原樣
   return <span className="text-2xl">{icon}</span>;
 }
 
