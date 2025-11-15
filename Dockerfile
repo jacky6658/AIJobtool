@@ -1,20 +1,27 @@
 # 使用 Node.js 18 作為基礎映像
 FROM node:18-alpine
 
+# 明確標記這是 Node.js 應用
+LABEL runtime="nodejs"
+LABEL framework="express"
+
 # 設定工作目錄
 WORKDIR /app
 
 # 複製 package.json 和 package-lock.json（如果存在）
 COPY package*.json ./
 
-# 安裝依賴
-RUN npm install
+# 安裝依賴（包括 devDependencies，因為需要 vite 來建置）
+RUN npm ci
 
 # 複製所有檔案
 COPY . .
 
 # 建置應用程式
 RUN npm run build
+
+# 驗證建置結果
+RUN ls -la dist/ || echo "警告: dist 目錄不存在或為空"
 
 # 創建非 root 用戶
 RUN addgroup -g 1001 -S nodejs && \
@@ -33,7 +40,7 @@ ENV NODE_ENV=production
 # 切換到非 root 用戶
 USER nodejs
 
-# 啟動應用程式
+# 啟動應用程式（明確使用 node）
 CMD ["node", "server.js"]
 
 

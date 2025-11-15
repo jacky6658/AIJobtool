@@ -17,45 +17,6 @@ export const SEOHead: React.FC<SEOHeadProps> = ({
 }) => {
   const siteUrl = "https://aijobaitools.zeabur.app";
   const imageUrl = "https://static.wixstatic.com/media/9705bb_dd62dc9b5ff6496a9a9560ca516f9851~mv2.png";
-  
-  // 結構化資料（JSON-LD）
-  const structuredData = {
-    "@context": "https://schema.org",
-    "@type": "EducationalOrganization",
-    "name": "AIJob 自動化學院",
-    "alternateName": "AIJob 自動化學院",
-    "url": siteUrl,
-    "logo": imageUrl,
-    "description": description,
-    "address": {
-      "@type": "PostalAddress",
-      "addressCountry": "TW",
-      "addressRegion": "台北市",
-      "addressLocality": "內湖區",
-      "streetAddress": "康寧路三段之7號3樓"
-    },
-    "contactPoint": {
-      "@type": "ContactPoint",
-      "telephone": "+886-02-6605-7111",
-      "contactType": "customer service",
-      "email": "aiagentg888@gmail.com",
-      "areaServed": "TW",
-      "availableLanguage": ["zh-Hant", "zh-TW"]
-    },
-    "sameAs": [
-      "https://www.aijob.com.tw/",
-      "https://www.instagram.com/aijobschool/",
-      "https://youtube.com/@aijobschool",
-      "https://discord.gg/Dzm2P7rHyg"
-    ],
-    "offers": {
-      "@type": "Offer",
-      "name": "n8n 行銷 AI 自動化課程",
-      "url": "https://onsell.aijob.com.tw",
-      "priceCurrency": "TWD",
-      "availability": "https://schema.org/InStock"
-    }
-  };
 
   React.useEffect(() => {
     // 動態更新 document.title
@@ -99,15 +60,53 @@ export const SEOHead: React.FC<SEOHeadProps> = ({
     updateTwitterMeta('twitter:title', title);
     updateTwitterMeta('twitter:description', description);
 
-    // 添加結構化資料
+    // 添加結構化資料（使用最新的資料）
+    const currentStructuredData = {
+      "@context": "https://schema.org",
+      "@type": "EducationalOrganization",
+      "name": "AIJob 自動化學院",
+      "alternateName": "AIJob 自動化學院",
+      "url": siteUrl,
+      "logo": imageUrl,
+      "description": description,
+      "address": {
+        "@type": "PostalAddress",
+        "addressCountry": "TW",
+        "addressRegion": "台北市",
+        "addressLocality": "內湖區",
+        "streetAddress": "康寧路三段之7號3樓"
+      },
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "telephone": "+886-02-6605-7111",
+        "contactType": "customer service",
+        "email": "aiagentg888@gmail.com",
+        "areaServed": "TW",
+        "availableLanguage": ["zh-Hant", "zh-TW"]
+      },
+      "sameAs": [
+        "https://www.aijob.com.tw/",
+        "https://www.instagram.com/aijobschool/",
+        "https://youtube.com/@aijobschool",
+        "https://discord.gg/Dzm2P7rHyg"
+      ],
+      "offers": {
+        "@type": "Offer",
+        "name": "n8n 行銷 AI 自動化課程",
+        "url": "https://onsell.aijob.com.tw",
+        "priceCurrency": "TWD",
+        "availability": "https://schema.org/InStock"
+      }
+    };
+
     let script = document.querySelector('script[type="application/ld+json"]');
     if (!script) {
       script = document.createElement('script');
       script.setAttribute('type', 'application/ld+json');
       document.head.appendChild(script);
     }
-    script.textContent = JSON.stringify(structuredData, null, 2);
-  }, [title, description, currentPage, structuredData]);
+    script.textContent = JSON.stringify(currentStructuredData, null, 2);
+  }, [title, description, currentPage, siteUrl, imageUrl]);
 
   return null; // 此組件不渲染任何內容
 };

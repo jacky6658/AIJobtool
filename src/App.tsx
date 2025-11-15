@@ -156,7 +156,8 @@ const AppLauncherDemo: React.FC = () => {
   const toastTimeoutRef = React.useRef<number | null>(null);
 
   // 頁面狀態：載入動畫、首頁/工具庫切換
-  const [showLoading, setShowLoading] = React.useState<boolean>(true);
+  // 暫時禁用載入動畫以排查問題
+  const [showLoading, setShowLoading] = React.useState<boolean>(false);
   const [currentPage, setCurrentPage] = React.useState<"home" | "tools">("home");
 
   // Admin 狀態 & 管理用暫存

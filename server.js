@@ -19,6 +19,12 @@ const {
 const app = express();
 const PORT = process.env.PORT || 8080;
 
+// 明確標記這是 Node.js/Express 應用（避免 Zeabur 誤判）
+console.log('🚀 啟動 Node.js/Express 伺服器...');
+console.log(`📦 Node.js 版本: ${process.version}`);
+console.log(`🌍 環境: ${process.env.NODE_ENV || 'development'}`);
+console.log(`🔌 端口: ${PORT}`);
+
 // 環境變數
 const ADMIN_SECRET = process.env.ADMIN_SECRET || '';
 const NODE_ENV = process.env.NODE_ENV || 'development';
