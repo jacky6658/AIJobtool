@@ -397,6 +397,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               onEdit={handleEditCategory}
               onDelete={handleDeleteCategory}
               onSave={handleSaveCategory}
+              onCatalogChange={onCatalogChange}
+              onSaveCatalog={onSave}
+              onShowToast={onShowToast}
+              isSaving={isSaving}
             />
           )}
         </div>
@@ -605,6 +609,10 @@ const CategoriesManagement: React.FC<{
   onEdit: (category: string) => void;
   onDelete: (category: string) => void;
   onSave: () => void;
+  onCatalogChange: (catalog: Catalog) => void;
+  onSaveCatalog: (catalog: Catalog) => Promise<boolean>;
+  onShowToast: (message: string) => void;
+  isSaving: boolean;
 }> = ({
   categories,
   apps,
@@ -616,7 +624,105 @@ const CategoriesManagement: React.FC<{
   onEdit,
   onDelete,
   onSave,
+  onCatalogChange,
+  onSaveCatalog,
+  onShowToast,
+  isSaving,
 }) => {
+  const [draggedIndex, setDraggedIndex] = React.useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = React.useState<number | null>(null);
+  const [localCategories, setLocalCategories] = React.useState<Category[]>(categories);
+
+  // 當 categories 從外部更新時，同步到本地狀態
+  React.useEffect(() => {
+    setLocalCategories(categories);
+  }, [categories]);
+
+  // 處理拖拽開始
+  const handleDragStart = (index: number) => {
+    setDraggedIndex(index);
+  };
+
+  // 處理拖拽結束
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
+  // 處理拖拽懸停
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (draggedIndex !== null && draggedIndex !== index) {
+      setDragOverIndex(index);
+    }
+  };
+
+  // 處理放置
+  const handleDrop = async (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === dropIndex) {
+      setDraggedIndex(null);
+      setDragOverIndex(null);
+      return;
+    }
+
+    const newCategories = [...localCategories];
+    const [removed] = newCategories.splice(draggedIndex, 1);
+    newCategories.splice(dropIndex, 0, removed);
+
+    setLocalCategories(newCategories);
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+
+    // 更新 catalog
+    const newCatalog = {
+      categories: newCategories,
+      apps: apps,
+    };
+    
+    // 調用父組件的回調
+    onCatalogChange(newCatalog);
+    const success = await onSaveCatalog(newCatalog);
+    if (success) {
+      onShowToast("已更新分類順序 ✓");
+    } else {
+      onShowToast("已更新（草稿）• 請匯出 catalog.json 並上傳");
+    }
+  };
+
+  // 使用上下箭頭調整順序
+  const handleMoveCategory = async (index: number, direction: 'up' | 'down') => {
+    if (
+      (direction === 'up' && index === 0) ||
+      (direction === 'down' && index === localCategories.length - 1)
+    ) {
+      return;
+    }
+
+    const newCategories = [...localCategories];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    [newCategories[index], newCategories[targetIndex]] = [
+      newCategories[targetIndex],
+      newCategories[index],
+    ];
+
+    setLocalCategories(newCategories);
+
+    // 更新 catalog
+    const newCatalog = {
+      categories: newCategories,
+      apps: apps,
+    };
+    
+    // 調用父組件的回調
+    onCatalogChange(newCatalog);
+    const success = await onSaveCatalog(newCatalog);
+    if (success) {
+      onShowToast("已更新分類順序 ✓");
+    } else {
+      onShowToast("已更新（草稿）• 請匯出 catalog.json 並上傳");
+    }
+  };
   return (
     <div className="space-y-4">
       {/* 新增分類表單 */}
@@ -683,33 +789,99 @@ const CategoriesManagement: React.FC<{
           <p className="text-slate-500 dark:text-slate-400">尚無分類，請新增分類</p>
         </div>
       ) : (
-        <div className="grid gap-3">
-          {categories.map((category) => {
+        <div className="space-y-3">
+          <div className="text-xs text-slate-500 dark:text-slate-400 mb-2 px-1">
+            💡 提示：拖拽分類項目或使用上下箭頭調整順序
+          </div>
+          {localCategories.map((category, index) => {
             const appsInCategory = apps.filter((a) => a.category === category);
             const isEditing = editingCategory === category;
+            const isDragging = draggedIndex === index;
+            const isDragOver = dragOverIndex === index;
 
             return (
               <div
                 key={category}
-                className={`p-4 rounded-lg border ${
+                draggable
+                onDragStart={() => handleDragStart(index)}
+                onDragEnd={handleDragEnd}
+                onDragOver={(e) => handleDragOver(e, index)}
+                onDrop={(e) => handleDrop(e, index)}
+                className={`p-4 rounded-lg border transition-all cursor-move ${
                   isDark
                     ? "bg-slate-800/50 border-slate-700"
                     : "bg-slate-50 border-slate-200"
+                } ${
+                  isDragging ? "opacity-50 scale-95" : ""
+                } ${
+                  isDragOver ? "border-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/20" : ""
                 }`}
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
+                <div className="flex items-center justify-between gap-3">
+                  {/* 拖拽手柄和順序控制 */}
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {/* 拖拽圖示 */}
+                    <div className="text-slate-400 dark:text-slate-500 cursor-grab active:cursor-grabbing">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+                      </svg>
+                    </div>
+                    
+                    {/* 順序編號 */}
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold ${
+                      isDark ? "bg-slate-700 text-slate-300" : "bg-slate-200 text-slate-600"
+                    }`}>
+                      {index + 1}
+                    </div>
+                    
+                    {/* 上下箭頭按鈕 */}
+                    <div className="flex flex-col gap-0.5">
+                      <button
+                        onClick={() => handleMoveCategory(index, 'up')}
+                        disabled={index === 0 || isSaving}
+                        className={`p-0.5 rounded ${
+                          index === 0 || isSaving
+                            ? "text-slate-300 dark:text-slate-600 cursor-not-allowed"
+                            : "text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
+                        } transition-colors`}
+                        title="向上移動"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => handleMoveCategory(index, 'down')}
+                        disabled={index === localCategories.length - 1 || isSaving}
+                        className={`p-0.5 rounded ${
+                          index === localCategories.length - 1 || isSaving
+                            ? "text-slate-300 dark:text-slate-600 cursor-not-allowed"
+                            : "text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
+                        } transition-colors`}
+                        title="向下移動"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 分類資訊 */}
+                  <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-sm">{category}</h3>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                       {appsInCategory.length} 個應用程式
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
+
+                  {/* 操作按鈕 */}
+                  <div className="flex items-center gap-2 flex-shrink-0">
                     <button
                       onClick={() => onEdit(category)}
-                      disabled={isEditing}
+                      disabled={isEditing || isSaving}
                       className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                        isEditing
+                        isEditing || isSaving
                           ? isDark
                             ? "bg-slate-700 text-slate-500 cursor-not-allowed"
                             : "bg-slate-200 text-slate-400 cursor-not-allowed"
@@ -722,8 +894,13 @@ const CategoriesManagement: React.FC<{
                     </button>
                     <button
                       onClick={() => onDelete(category)}
+                      disabled={isSaving}
                       className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                        isDark
+                        isSaving
+                          ? isDark
+                            ? "bg-slate-700 text-slate-500 cursor-not-allowed"
+                            : "bg-slate-200 text-slate-400 cursor-not-allowed"
+                          : isDark
                           ? "bg-rose-600/20 hover:bg-rose-600/30 text-rose-400"
                           : "bg-rose-50 hover:bg-rose-100 text-rose-600"
                       }`}
