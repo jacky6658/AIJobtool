@@ -594,15 +594,32 @@ const AppLauncherDemo: React.FC = () => {
         <div className={`absolute -bottom-32 -left-20 h-80 w-80 rounded-full blur-3xl opacity-70 animate-pulse ${isDark ? "bg-sky-900/40" : "bg-sky-100"}`} />
       </div>
 
-      {/* 行動版頂欄 */}
-      <div className={`fixed top-0 left-0 right-0 z-30 flex items-center justify-between border-b px-4 py-3 md:hidden ${
-        isDark ? "bg-slate-900/90 border-slate-800 text-slate-100" : "bg-white/90 border-slate-200 text-slate-800 backdrop-blur-sm"}`}>
-        <button onClick={() => setSidebarOpen(true)} className="text-xl">☰</button>
-        <span className="font-semibold text-sm">AIJob 工具庫</span>
+      {/* 行動版頂欄 - iOS 風格 */}
+      <div className={`fixed top-0 left-0 right-0 z-30 flex items-center justify-between px-4 py-3 md:hidden ${
+        isDark ? "bg-slate-900/95 border-b border-slate-800/50 text-slate-100" : "bg-white/95 border-b border-slate-200/50 text-slate-900 backdrop-blur-xl"}`}>
+        <button 
+          onClick={() => setSidebarOpen(true)} 
+          className="w-10 h-10 flex items-center justify-center rounded-full active:bg-slate-200/50 dark:active:bg-slate-700/50 transition-colors"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+        <span className="font-semibold text-base tracking-tight">AIJob 工具庫</span>
+        <div className="w-10"></div>
       </div>
 
       {/* 主要版面 */}
       <div className="relative flex pt-12 md:pt-0">
+        {/* 手機版遮罩層 - 點擊空白處關閉抽屜 */}
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 z-30 bg-black/20 backdrop-blur-sm md:hidden"
+            onClick={() => setSidebarOpen(false)}
+            aria-hidden="true"
+          />
+        )}
+        
         {/* 側邊欄 */}
         <aside
           className={`fixed md:static z-40 top-0 left-0 bottom-0 md:h-screen w-64 px-4 py-6 flex flex-col transform transition-all duration-200 ease-in-out border-r ${
@@ -952,7 +969,7 @@ const AppLauncherDemo: React.FC = () => {
                 找不到符合條件的工具，試試其他關鍵字或切換分類。
               </div>
             ) : (
-              <div className="grid grid-cols-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
+              <div className="grid grid-cols-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-4">
                 {filteredApps.map((app) => {
                   const isFavoriteApp = favorites.includes(app.name);
                   const isCatalogApp = catalog.apps.some(x => x.name === app.name && x.href === app.href);
@@ -963,14 +980,14 @@ const AppLauncherDemo: React.FC = () => {
                       role="button"
                       tabIndex={0}
                       onClick={() => setSelectedApp(app)}
-                      className="group relative rounded-2xl p-px transition-transform duration-150 hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-indigo-300/60 sm:rounded-2xl"
+                      className="group relative rounded-[20px] sm:rounded-2xl p-px transition-all duration-200 active:scale-[0.96] sm:hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-indigo-300/60"
                     >
                       {/* hover 漸層光暈 - 只在桌面版顯示 */}
                       <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-150 bg-gradient-to-br from-indigo-200/80 via-sky-200/60 to-transparent hidden sm:block" />
 
                       <div
-                        className={`relative rounded-[14px] sm:rounded-[14px] p-3 sm:p-4 md:p-5 lg:p-4 xl:p-5 flex flex-col items-center text-center shadow-sm backdrop-blur-sm h-full min-h-[140px] sm:h-[280px] md:h-[300px] lg:h-[280px] xl:h-[300px] ${
-                          isDark ? "bg-slate-900/90 border border-slate-800" : "bg-white/95 border border-slate-100"
+                        className={`relative rounded-[20px] sm:rounded-[14px] p-4 sm:p-4 md:p-5 lg:p-4 xl:p-5 flex flex-col items-center text-center backdrop-blur-sm h-full min-h-[160px] sm:h-[280px] md:h-[300px] lg:h-[280px] xl:h-[300px] transition-all duration-200 ${
+                          isDark ? "bg-slate-900/95 border border-slate-800/50 shadow-sm" : "bg-white/98 border border-slate-200/60 shadow-sm"
                         }`}
                       >
                         {/* 收藏 - 手機版隱藏，桌面版顯示 */}
@@ -999,20 +1016,22 @@ const AppLauncherDemo: React.FC = () => {
                           </button>
                         )}
 
-                        {/* 圖示 - 手機版更大，像 iPhone App 圖示 */}
-                        <div className={`mb-2 sm:mb-3 flex h-16 w-16 sm:h-12 sm:w-12 items-center justify-center rounded-2xl sm:rounded-xl ${isDark ? "bg-slate-800" : "bg-indigo-50"} overflow-hidden shadow-md sm:shadow-none relative`}>
+                        {/* 圖示 - 手機版更大，像 iPhone App 圖示 - iOS 風格 */}
+                        <div className={`mb-3 sm:mb-3 flex h-20 w-20 sm:h-12 sm:w-12 items-center justify-center rounded-[22px] sm:rounded-xl ${isDark ? "bg-slate-800/90" : "bg-gradient-to-br from-slate-50 to-slate-100"} overflow-hidden shadow-lg sm:shadow-none relative transition-transform active:scale-95`}>
                           {renderIcon(app.icon, app.name, app.category)}
                         </div>
 
-                        {/* 名稱 - 手機版只顯示名稱，桌面版顯示完整資訊 */}
-                        <div className="font-semibold text-xs sm:text-sm md:text-base mb-0 sm:mb-1 sm:line-clamp-2 text-center leading-tight w-full px-1 break-words">{app.name}</div>
+                        {/* 名稱 - 手機版最多兩行，桌面版顯示完整資訊 - iOS 風格 */}
+                        <div className="font-semibold text-[13px] sm:text-sm md:text-base mb-0 sm:mb-1 text-center w-full px-1 break-words leading-[1.3] tracking-tight">
+                          {app.name}
+                        </div>
                         
                         {/* 分類、簡介、標籤 - 只在桌面版顯示 */}
                         <div className="hidden sm:block w-full flex-1 flex flex-col">
                           <div className="text-[11px] md:text-xs text-indigo-500 mb-2">{app.category}</div>
-                          <div className="text-xs md:text-sm text-slate-500 dark:text-slate-400 mb-3 line-clamp-3 flex-1">{app.description}</div>
+                          <div className="text-xs md:text-sm text-slate-500 dark:text-slate-400 mb-3 line-clamp-3 flex-1 break-words">{app.description}</div>
                           {app.tags && app.tags.length > 0 && (
-                            <div className="flex flex-wrap justify-center gap-1 mt-auto">
+                            <div className="tags-container mt-auto">
                               {app.tags.slice(0, 3).map((tag) => (
                                 <span key={tag} className="rounded-full bg-sky-100 dark:bg-slate-800/80 px-2 py-0.5 text-[10px] md:text-xs text-black dark:text-slate-400">
                                 #{tag}
@@ -1068,20 +1087,20 @@ const AppLauncherDemo: React.FC = () => {
                 {renderIcon(selectedApp.icon, selectedApp.name, selectedApp.category)}
               </div>
               
-              {/* 名稱 */}
-              <h2 className="text-xl sm:text-lg font-semibold mb-2 sm:mb-1 px-2">{selectedApp.name}</h2>
+              {/* 名稱 - 最多兩行 */}
+              <h2 className="text-xl sm:text-lg font-semibold mb-2 sm:mb-1 px-2 text-center w-full break-words modal-title">{selectedApp.name}</h2>
               
               {/* 分類 */}
               <div className="text-sm sm:text-xs text-indigo-500 mb-4 sm:mb-3">{selectedApp.category}</div>
               
               {/* 簡介 */}
-              <p className="text-base sm:text-sm text-slate-600 dark:text-slate-300 mb-6 sm:mb-5 leading-relaxed px-2">{selectedApp.description}</p>
+              <p className="text-base sm:text-sm text-slate-600 dark:text-slate-300 mb-6 sm:mb-5 leading-relaxed px-2 break-words">{selectedApp.description}</p>
               
-              {/* 標籤 - 手機版也顯示 */}
+              {/* 標籤 - 手機版也顯示，自動換行 */}
               {selectedApp.tags && selectedApp.tags.length > 0 && (
                 <div className="flex flex-wrap justify-center gap-2 mb-6 sm:mb-5 w-full px-2">
                   {selectedApp.tags.map((tag) => (
-                    <span key={tag} className="rounded-full bg-sky-100 dark:bg-slate-800/80 px-3 py-1 text-xs text-black dark:text-slate-400">
+                    <span key={tag} className="rounded-full bg-sky-100 dark:bg-slate-800/80 px-3 py-1 text-xs text-black dark:text-slate-400 whitespace-nowrap">
                       #{tag}
                     </span>
                   ))}
