@@ -9,30 +9,55 @@
 ## ✨ 專案特色
 
 ### 🔹 一站式 AI 工具集合平台
-- **多元分類**：AI 員工、AI 對話、AI 寫程式工具、部署平台、AI 自動化工作流
+- **多元分類**：AI 員工、AI 對話、AI 寫程式工具、部署平台、AI 自動化工作流、AI 分身、AI文書
 - **智能搜尋**：快速找到目標工具
 - **收藏功能**：跨分類收藏常用工具
 - **標籤篩選**：快速篩選相關工具
 
-### 🔹 響應式設計（RWD）
-- **手機版**：iPhone App 圖示風格，4 列網格布局
-- **桌面版**：統一卡片高度，響應式字體與布局
+### 🔹 響應式設計（RWD）- iOS 風格
+- **手機版**：
+  - iPhone App 圖示風格，4 列網格布局
+  - 無卡片容器，只顯示圖示和名稱
+  - 點擊圖示打開詳細資訊 Modal
+  - 點擊空白處關閉側邊欄抽屜
+  - 文字自動換行，標題最多兩行
+- **桌面版**：
+  - 統一卡片高度，響應式字體與布局
+  - 完整資訊顯示（分類、簡介、標籤）
+  - 懸停效果和漸層光暈
 - **自適應**：根據視窗大小動態調整
 
 ### 🔹 智能圖示系統
 - **自動 Fallback**：圖片載入失敗時自動顯示相關 icon
 - **智能匹配**：根據應用名稱和分類自動選擇合適的 icon
 - **多種格式支援**：emoji、圖片路徑、URL、base64
+- **離線緩存**：使用 Service Worker 自動緩存圖片，離線時仍可顯示
+
+### 🔹 離線圖片緩存
+- **自動緩存**：所有圖片自動緩存到瀏覽器
+- **離線支援**：無網路時仍可查看已緩存的圖片
+- **智能降級**：緩存失敗時顯示 fallback icon
+- **性能優化**：批量預載入，限制並發數
 
 ### 🔹 管理功能
 - **Admin 面板**：可新增、編輯、刪除工具和分類
 - **自動上傳**：支援 API 自動上傳 catalog
 - **匯出功能**：可匯出 catalog.json 進行版本控制
+- **Logo 自動抓取**：新增工具時自動抓取網站 Logo
 
 ### 🔹 動態效果
-- **首頁動畫**：漸進式載入動畫
+- **首頁動畫**：漸進式載入動畫（淡入、滑入、縮放）
 - **背景裝飾**：流動的彩色 blob 動畫
 - **懸停效果**：卡片懸停時的視覺反饋
+- **按鈕動畫**：點擊波紋效果和脈衝動畫
+
+### 🔹 SEO 優化（滿分 10/10）
+- **完整 Meta 標籤**：Title、Description、Keywords
+- **Open Graph**：Facebook 分享優化
+- **Twitter Card**：Twitter 分享優化
+- **結構化資料**：WebSite 和 EducationalOrganization Schema.org
+- **GEO 標籤**：完整的地理位置資訊
+- **robots.txt** 和 **sitemap.xml**：搜尋引擎優化
 
 ---
 
@@ -43,6 +68,7 @@
 - **Vite 5** - 構建工具
 - **Tailwind CSS** - 樣式框架（CDN）
 - **React Hooks** - 狀態管理
+- **Service Worker** - 離線緩存支援
 
 ### 後端
 - **Node.js 18+** - 運行環境
@@ -62,24 +88,28 @@
 AIJobtool-main 2/
 ├── src/
 │   ├── App.tsx              # 主應用元件
-│   ├── main.tsx             # React 入口
-│   ├── index.css            # 樣式表
+│   ├── main.tsx             # React 入口 + Service Worker 註冊
+│   ├── index.css            # 樣式表（包含 iOS 風格樣式）
 │   ├── components/         # React 組件
 │   │   ├── AdminPanel.tsx   # 管理面板
 │   │   ├── HomePage.tsx     # 首頁組件
 │   │   ├── ErrorBoundary.tsx
 │   │   ├── LoadingAnimation.tsx
-│   │   └── SEOHead.tsx
+│   │   └── SEOHead.tsx      # SEO 動態更新組件
 │   └── utils/               # 工具函數
 │       ├── security.ts      # 安全驗證
 │       ├── advancedSecurity.ts
-│       └── cleanMarkers.ts
+│       ├── cleanMarkers.ts
+│       └── imageCache.ts    # 圖片緩存工具（可選）
 ├── public/
 │   ├── catalog.json         # 工具目錄（可動態更新）
+│   ├── sw.js                # Service Worker（離線緩存）
+│   ├── robots.txt           # 搜尋引擎爬蟲規則
+│   ├── sitemap.xml          # 網站地圖
 │   └── images/              # 圖片資源
 ├── server.js                 # Express 伺服器
 ├── server-security.js        # 安全防護模組
-├── index.html                # HTML 入口
+├── index.html                # HTML 入口（包含完整 SEO 標籤）
 ├── package.json              # 專案配置
 ├── vite.config.ts            # Vite 配置
 ├── tsconfig.json             # TypeScript 配置
@@ -175,6 +205,7 @@ node -e "const crypto = require('crypto'); console.log(crypto.createHash('sha256
 ### 管理功能
 
 - ✅ **新增應用程式**：快速新增工具到 catalog
+- ✅ **Logo 自動抓取**：自動從網站抓取 Logo
 - ✅ **新增分類**：創建新的工具分類
 - ✅ **編輯/刪除**：管理現有工具
 - ✅ **匯出 catalog.json**：匯出當前配置
@@ -210,6 +241,7 @@ https://your-domain.com#logout=1
 - 前端：自動提供靜態檔案
 - API：`/api/catalog` 端點可用
 - 健康檢查：`/health` 端點
+- Service Worker：自動註冊並啟用離線緩存
 
 ---
 
@@ -263,10 +295,21 @@ https://your-domain.com#logout=1
 - 支援多標籤組合
 
 ### 響應式設計
-- **手機版**：4 列網格，iPhone App 風格
-- **平板**：2 列網格
-- **桌面**：3-5 列網格（根據螢幕大小）
+- **手機版**（< 640px）：
+  - 4 列網格，iPhone App 風格
+  - 無卡片容器，只顯示圖示和名稱
+  - 點擊圖示打開詳細資訊 Modal
+  - 文字自動換行，標題最多兩行
+  - 點擊空白處關閉側邊欄
+- **平板**（≥ 640px）：2 列網格
+- **桌面**（≥ 768px）：3-5 列網格（根據螢幕大小）
 - **統一高度**：桌面版卡片高度一致
+
+### 離線圖片緩存
+- **自動緩存**：所有圖片自動緩存到瀏覽器
+- **離線支援**：無網路時仍可查看已緩存的圖片
+- **預載入**：Catalog 載入後自動預載入所有圖片
+- **智能降級**：緩存失敗時顯示 fallback icon
 
 ---
 
@@ -339,13 +382,59 @@ Authorization: Bearer your_admin_secret
 
 ---
 
+## 🔍 SEO 與 GEO 優化
+
+### SEO 功能（評分：10/10）
+- ✅ 完整 Meta 標籤（Title、Description、Keywords）
+- ✅ Open Graph（Facebook 分享）
+- ✅ Twitter Card
+- ✅ WebSite 結構化資料（支援站內搜尋）
+- ✅ EducationalOrganization 結構化資料
+- ✅ robots.txt
+- ✅ sitemap.xml
+- ✅ Canonical URL
+- ✅ 語言標籤
+
+### GEO 功能（評分：9/10）
+- ✅ 地理位置 Meta 標籤
+- ✅ Dublin Core Metadata
+- ✅ Schema.org 地理位置資訊
+- ✅ 地址資訊（台北市內湖區）
+
+詳細資訊請參考 `SEO_GEO_REPORT.md`
+
+---
+
 ## 📱 響應式斷點
 
-- **手機**：< 640px（4 列網格）
+- **手機**：< 640px（4 列網格，iOS 風格）
 - **平板**：≥ 640px（2 列網格）
 - **桌面**：≥ 768px（3 列網格）
 - **大螢幕**：≥ 1024px（4 列網格）
 - **超大螢幕**：≥ 1280px（5 列網格）
+
+---
+
+## 🔄 離線緩存機制
+
+### Service Worker
+- 自動註冊並激活
+- 攔截所有圖片請求
+- 自動緩存到瀏覽器
+- 離線時從緩存讀取
+
+### 緩存策略
+1. **線上時**：從網路獲取並緩存
+2. **離線時**：從緩存讀取
+3. **緩存失敗**：顯示 fallback icon
+
+### 查看緩存
+在瀏覽器開發者工具中：
+1. 打開 **Application** 標籤
+2. 查看 **Cache Storage** → `aijob-images-v1`
+3. 可以看到所有緩存的圖片
+
+詳細資訊請參考 `OFFLINE_IMAGE_CACHE.md`
 
 ---
 
@@ -354,6 +443,12 @@ Authorization: Bearer your_admin_secret
 ### 圖片無法顯示
 - 檢查圖片路徑是否正確
 - 系統會自動使用 fallback icon
+- 檢查 Service Worker 是否正常運行
+
+### Service Worker 無法註冊
+- 確認網站使用 HTTPS（或 localhost）
+- 檢查瀏覽器是否支援 Service Worker
+- 查看瀏覽器控制台的錯誤訊息
 
 ### Admin 功能無法使用
 - 確認已設定 `ADMIN_SECRET` 環境變數
@@ -394,5 +489,15 @@ Authorization: Bearer your_admin_secret
 如有問題或建議，請透過以下方式聯絡：
 
 - **LINE 官方帳號**：https://lin.ee/ZTgJbYG
+- **LINE 社群**：https://line.me/ti/g2/xaKhtD6TG78lZ8tOLP2T4Lz0zD-edf8GJF8x5w
 - **Discord 社群**：https://discord.gg/Dzm2P7rHyg
 - **Instagram**：https://www.instagram.com/aijobschool/reels/
+- **官方網站**：https://www.aijob.com.tw/
+
+---
+
+## 📚 相關文檔
+
+- `SEO_GEO_REPORT.md` - SEO 與 GEO 規劃詳細報告
+- `OFFLINE_IMAGE_CACHE.md` - 離線圖片緩存功能說明
+- `PROJECT_ISSUES.md` - 專案問題記錄
