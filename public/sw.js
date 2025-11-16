@@ -69,19 +69,32 @@ self.addEventListener('fetch', (event) => {
         }
 
         // 如果沒有緩存，從網路獲取
-        return fetch(event.request, {
-          mode: 'cors',
-          cache: 'no-cache',
-          credentials: 'omit' // 不使用 credentials，避免 CORS 問題
-        })
+        // 判斷是否為外部 URL
+        const isExternal = url.origin !== self.location.origin;
+        
+        // 對於外部 URL，先嘗試 no-cors 模式
+        const fetchOptions = {
+          cache: 'no-cache' as RequestCache,
+          mode: (isExternal ? 'no-cors' : 'cors') as RequestMode,
+          credentials: 'omit' as RequestCredentials
+        };
+        
+        return fetch(event.request, fetchOptions)
           .then((response) => {
-            // 只緩存成功的響應（允許 basic 和 cors 類型）
-            if (response && response.status === 200 && (response.type === 'basic' || response.type === 'cors')) {
+            // 緩存成功的響應
+            // no-cors 模式下返回 opaque 響應（status 為 0，但可以緩存）
+            // cors 模式下返回 basic 或 cors 響應（status 為 200）
+            const canCache = response && (
+              response.type === 'opaque' || // no-cors 模式的響應
+              (response.status === 200 && (response.type === 'basic' || response.type === 'cors')) // cors 模式的響應
+            );
+            
+            if (canCache) {
               // 克隆響應，因為響應只能使用一次
               const responseToCache = response.clone();
               // 異步緩存，不阻塞響應
               cache.put(event.request, responseToCache).then(() => {
-                console.log('[Service Worker] Cached new image:', event.request.url);
+                console.log('[Service Worker] Cached new image:', event.request.url, `(${response.type})`);
               }).catch((err) => {
                 console.warn('[Service Worker] Failed to cache image:', event.request.url, err);
               });

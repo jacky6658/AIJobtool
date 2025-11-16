@@ -237,12 +237,18 @@ const AppLauncherDemo: React.FC = () => {
       try {
         // 先嘗試從 API 載入（強制不使用快取，確保獲取最新數據）
         const apiEndpoint = CATALOG_API_ENDPOINT || '/api/catalog';
-        const apiResponse = await fetch(apiEndpoint, { 
+        // 添加隨機參數和時間戳，強制繞過所有快取層級
+        const timestamp = Date.now();
+        const random = Math.random().toString(36).substring(7);
+        const apiUrl = `${apiEndpoint}?_t=${timestamp}&_r=${random}`;
+        const apiResponse = await fetch(apiUrl, { 
           cache: "no-store",
           headers: {
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
             'Pragma': 'no-cache',
-            'If-None-Match': '' // 強制重新驗證
+            'Expires': '0',
+            'If-None-Match': '*', // 強制重新驗證
+            'If-Modified-Since': '0' // 強制重新驗證
           }
         });
         
@@ -255,8 +261,8 @@ const AppLauncherDemo: React.FC = () => {
             }
             // 先設置 catalog 和 loading 狀態，讓 UI 立即更新
             setCatalogLoading(false);
-            // 然後在背景預載入圖片（不阻塞 UI）
-            setTimeout(() => preloadAppImages(data.apps), 0);
+            // 立即開始預載入圖片（不阻塞 UI，但立即開始）
+            preloadAppImages(data.apps);
             return;
           }
         }
@@ -264,14 +270,18 @@ const AppLauncherDemo: React.FC = () => {
         console.warn('API 載入失敗，嘗試靜態檔案:', error);
       }
       
-      // API 載入失敗，嘗試靜態檔案（添加時間戳避免快取）
+      // API 載入失敗，嘗試靜態檔案（添加時間戳和隨機參數避免快取）
       try {
-        const timestamp = Date.now(); // 總是添加時間戳，避免快取
-        const staticResponse = await fetch(`/catalog.json?t=${timestamp}`, { 
+        const timestamp = Date.now();
+        const random = Math.random().toString(36).substring(7);
+        const staticResponse = await fetch(`/catalog.json?_t=${timestamp}&_r=${random}`, { 
           cache: "no-store",
           headers: {
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache'
+            'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+            'If-None-Match': '*',
+            'If-Modified-Since': '0'
           }
         });
         
@@ -284,8 +294,8 @@ const AppLauncherDemo: React.FC = () => {
             }
             // 先設置 catalog 和 loading 狀態，讓 UI 立即更新
             setCatalogLoading(false);
-            // 然後在背景預載入圖片（不阻塞 UI）
-            setTimeout(() => preloadAppImages(data.apps), 0);
+            // 立即開始預載入圖片（不阻塞 UI，但立即開始）
+            preloadAppImages(data.apps);
             return;
           }
         }
@@ -1397,7 +1407,7 @@ function preloadAppImages(apps: App[]) {
   // 批量預載入圖片（限制並發數，避免過載）
   const batchSize = 5;
   const preloadBatch = async (urls: string[]) => {
-    const cache = await caches.open('aijob-images-v1');
+    const cache = await caches.open('aijob-images-v2');
     
     for (const url of urls) {
       try {
@@ -1408,17 +1418,48 @@ function preloadAppImages(apps: App[]) {
           continue; // 已經緩存，跳過
         }
 
-        // 嘗試從網路獲取並緩存
-        const response = await fetch(url, { 
-          mode: 'cors',
-          cache: 'no-cache' // 強制從網路獲取最新版本
-        });
+        // 判斷是否為外部 URL（跨域）
+        const isExternal = url.startsWith('http') && !url.startsWith(window.location.origin);
+        
+        // 對於外部 URL，先嘗試 no-cors 模式（可以獲取但無法讀取內容）
+        // 對於同源 URL，使用 cors 模式
+        const fetchOptions: RequestInit = {
+          cache: 'no-cache',
+          mode: isExternal ? 'no-cors' : 'cors'
+        };
 
-        if (response.ok && (response.type === 'basic' || response.type === 'cors')) {
-          await cache.put(url, response.clone());
-          console.log('[Image Cache] Preloaded:', url);
-        } else {
-          console.warn('[Image Cache] Failed to preload (invalid response):', url, response.status, response.type);
+        try {
+          const response = await fetch(url, fetchOptions);
+          
+          // no-cors 模式下，response.ok 總是 true，但我們可以檢查 response.type
+          if (response.type === 'opaque' || response.type === 'basic' || response.type === 'cors') {
+            // 只有 opaque 或成功的響應才能緩存
+            if (response.type === 'opaque' || (response.ok && response.status === 200)) {
+              await cache.put(url, response.clone());
+              console.log('[Image Cache] Preloaded:', url, `(${response.type})`);
+            } else {
+              console.warn('[Image Cache] Failed to preload (invalid response):', url, response.status, response.type);
+            }
+          }
+        } catch (fetchError) {
+          // 如果 no-cors 失敗，嘗試 cors 模式（僅對外部 URL）
+          if (isExternal) {
+            try {
+              const corsResponse = await fetch(url, { 
+                mode: 'cors',
+                cache: 'no-cache',
+                credentials: 'omit'
+              });
+              if (corsResponse.ok && (corsResponse.type === 'basic' || corsResponse.type === 'cors')) {
+                await cache.put(url, corsResponse.clone());
+                console.log('[Image Cache] Preloaded (CORS):', url);
+              }
+            } catch (corsError) {
+              console.debug('[Image Cache] Failed to preload (both modes):', url);
+            }
+          } else {
+            console.debug('[Image Cache] Failed to preload:', url, fetchError);
+          }
         }
       } catch (error) {
         // 靜默失敗，不影響應用運行
@@ -1427,11 +1468,13 @@ function preloadAppImages(apps: App[]) {
     }
   };
 
-  // 分批處理，避免一次性載入過多
+  // 立即開始處理，不分批延遲（但限制並發數）
   for (let i = 0; i < imageUrls.length; i += batchSize) {
     const batch = imageUrls.slice(i, i + batchSize);
-    // 使用 setTimeout 延遲，避免阻塞主線程
-    setTimeout(() => preloadBatch(batch), i * 100);
+    // 立即執行，不延遲
+    preloadBatch(batch).catch(err => {
+      console.debug('[Image Cache] Batch failed:', err);
+    });
   }
 }
 

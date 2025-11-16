@@ -383,6 +383,12 @@ app.get('/api/catalog', (req, res, next) => {
       categories: catalogData.categories?.length || 0,
       apps: catalogData.apps?.length || 0
     });
+    
+    // 強制設定不緩存標頭（特別是針對手機瀏覽器）
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    
     res.json(catalogData);
   } catch (error) {
     console.error('❌ 讀取 catalog 失敗:', error);
@@ -493,12 +499,14 @@ app.get('/favicon.ico', (req, res) => {
 app.use(express.static('dist', {
   // 排除 API 路由
   index: false,
-  // 設定快取控制（避免 catalog.json 被快取）
+  // 設定快取控制（避免 catalog.json 被快取，特別是手機瀏覽器）
   setHeaders: (res, path) => {
     if (path.endsWith('catalog.json')) {
-      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
+      res.setHeader('ETag', ''); // 清除 ETag，強制重新驗證
+      res.setHeader('Last-Modified', ''); // 清除 Last-Modified
     }
   }
 }));
