@@ -158,6 +158,10 @@ const AppLauncherDemo: React.FC = () => {
   // 暫時禁用載入動畫以排查問題
   const [showLoading, setShowLoading] = React.useState<boolean>(false);
   const [currentPage, setCurrentPage] = React.useState<"home" | "tools">("home");
+  const [catalogLoading, setCatalogLoading] = React.useState<boolean>(true);
+
+  // 用於存儲 loadCatalog 函數的 ref
+  const loadCatalogRef = React.useRef<((forceRefresh?: boolean) => Promise<void>) | null>(null);
 
   // Admin 狀態 & 管理用暫存
   const [isAdmin, setIsAdmin] = React.useState<boolean>(false);
@@ -224,14 +228,15 @@ const AppLauncherDemo: React.FC = () => {
 
     // 載入公開 catalog.json
     // 優先從 API 載入（避免快取問題），失敗時使用靜態檔案
-    const loadCatalog = async () => {
+    const loadCatalog = async (forceRefresh = false) => {
+      setCatalogLoading(true);
       try {
         // 先嘗試從 API 載入（避免瀏覽器快取）
         const apiEndpoint = CATALOG_API_ENDPOINT || '/api/catalog';
         const apiResponse = await fetch(apiEndpoint, { 
-          cache: "no-store",
+          cache: forceRefresh ? "no-store" : "default",
           headers: {
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Cache-Control': forceRefresh ? 'no-cache, no-store, must-revalidate' : 'max-age=0',
             'Pragma': 'no-cache'
           }
         });
@@ -245,6 +250,7 @@ const AppLauncherDemo: React.FC = () => {
             }
             // 預載入所有圖片到緩存
             preloadAppImages(data.apps);
+            setCatalogLoading(false);
             return;
           }
         }
@@ -254,10 +260,11 @@ const AppLauncherDemo: React.FC = () => {
       
       // API 載入失敗，嘗試靜態檔案（添加時間戳避免快取）
       try {
-        const staticResponse = await fetch(`/catalog.json?t=${Date.now()}`, { 
-          cache: "no-store",
+        const timestamp = forceRefresh ? Date.now() : '';
+        const staticResponse = await fetch(`/catalog.json${timestamp ? `?t=${timestamp}` : ''}`, { 
+          cache: forceRefresh ? "no-store" : "default",
           headers: {
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Cache-Control': forceRefresh ? 'no-cache, no-store, must-revalidate' : 'max-age=0',
             'Pragma': 'no-cache'
           }
         });
@@ -271,6 +278,7 @@ const AppLauncherDemo: React.FC = () => {
             }
             // 預載入所有圖片到緩存
             preloadAppImages(data.apps);
+            setCatalogLoading(false);
             return;
           }
         }
@@ -293,7 +301,12 @@ const AppLauncherDemo: React.FC = () => {
           }
         }
       } catch {}
+      
+      setCatalogLoading(false);
     };
+    
+    // 將 loadCatalog 存儲到 ref，以便在其他地方調用
+    loadCatalogRef.current = loadCatalog;
     
     loadCatalog();
 
@@ -880,7 +893,11 @@ const AppLauncherDemo: React.FC = () => {
         <main className="flex-1 px-4 sm:px-6 py-6 md:py-8 md:ml-64">
           {currentPage === "home" ? (
             <HomePage 
-              onNavigateToCategory={(category) => {
+              onNavigateToCategory={async (category) => {
+                // 強制重新載入 catalog 以確保獲取最新數據（避免快取問題）
+                if (loadCatalogRef.current) {
+                  await loadCatalogRef.current(true);
+                }
                 setActiveCategory(category);
                 setCurrentPage("tools");
               }}
@@ -1362,12 +1379,14 @@ function preloadAppImages(apps: App[]) {
     return; // 瀏覽器不支持緩存
   }
 
-  // 提取所有圖片 URL
+  // 提取所有圖片 URL（過濾掉 Google favicon 服務，避免 CORS 錯誤）
   const imageUrls = apps
     .map(app => app.icon)
     .filter(icon => 
       typeof icon === "string" && 
-      (icon.startsWith("http") || icon.startsWith("/images/"))
+      (icon.startsWith("http") || icon.startsWith("/images/")) &&
+      !icon.includes("google.com/s2/favicons") && // 排除 Google favicon 服務
+      !icon.includes("gstatic.com/favicon") // 排除 Google static favicon
     );
 
   if (imageUrls.length === 0) {
@@ -1424,6 +1443,15 @@ const IconRenderer: React.FC<{ icon: string; alt: string; category?: string }> =
     (icon.startsWith("/images/") || icon.startsWith("http") || icon.startsWith("data:image"));
   
   const fallbackIcon = getFallbackIcon(alt, category);
+  
+  // 檢測是否為 Google favicon 服務 URL（會導致 CORS 錯誤，直接使用 fallback）
+  const isGoogleFavicon = typeof icon === "string" && 
+    (icon.includes("google.com/s2/favicons") || icon.includes("gstatic.com/favicon"));
+  
+  // 如果是 Google favicon 服務，直接使用 fallback，不嘗試載入
+  if (isImage && isGoogleFavicon) {
+    return <span className="text-2xl">{fallbackIcon}</span>;
+  }
   
   // 監聽網路狀態
   React.useEffect(() => {
