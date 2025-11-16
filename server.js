@@ -498,11 +498,15 @@ app.use(express.static('dist', {
   }
 }));
 
-// SPA fallback：所有其他 GET 請求都返回 index.html（排除 API 路由）
+// SPA fallback：所有其他 GET 請求都返回 index.html（排除 API 路由和 Service Worker）
 app.get('*', (req, res, next) => {
   // 如果是 API 路由，返回 404
   if (req.path.startsWith('/api/')) {
     return res.status(404).json({ error: 'API 路由不存在' });
+  }
+  // Service Worker 應該由靜態檔案服務器處理，但如果沒有找到，返回 404
+  if (req.path === '/sw.js') {
+    return res.status(404).json({ error: 'Service Worker not found' });
   }
   res.sendFile(path.join(__dirname, 'dist/index.html'));
 });

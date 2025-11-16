@@ -52,7 +52,36 @@
     <meta name="googlebot" content="index, follow" />
     
     <!-- 結構化資料預設（會被 React 組件動態更新） -->
-    <script type="application/ld+json" id="structured-data">
+    <!-- WebSite 結構化資料（Google 推薦） -->
+    <script type="application/ld+json" data-schema="website">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "AIJob AI工具庫",
+      "alternateName": "AIJob 自動化學院",
+      "url": "https://aijobaitools.zeabur.app",
+      "description": "AIJob 自動化學院專注於 AI 與自動化技術教學，提供 AI 工具庫、n8n 自動化課程、LINE 社群、Discord 社群等資源。",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": "https://aijobaitools.zeabur.app/#search={search_term_string}"
+        },
+        "query-input": "required name=search_term_string"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "AIJob 自動化學院",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://static.wixstatic.com/media/9705bb_dd62dc9b5ff6496a9a9560ca516f9851~mv2.png"
+        }
+      }
+    }
+    </script>
+    
+    <!-- EducationalOrganization 結構化資料 -->
+    <script type="application/ld+json" data-schema="organization">
     {
       "@context": "https://schema.org",
       "@type": "EducationalOrganization",
@@ -86,6 +115,13 @@
     
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="https://static.wixstatic.com/media/9705bb_dd62dc9b5ff6496a9a9560ca516f9851~mv2.png" />
+    
+    <!-- Apple Touch Icon (iOS 裝置) -->
+    <link rel="apple-touch-icon" href="https://static.wixstatic.com/media/9705bb_dd62dc9b5ff6496a9a9560ca516f9851~mv2.png" />
+    
+    <!-- Theme Color (行動裝置主題色) -->
+    <meta name="theme-color" content="#4F46E5" />
+    <meta name="msapplication-TileColor" content="#4F46E5" />
 
     <!-- 加入 Tailwind CDN（重點） -->
     <script src="https://cdn.tailwindcss.com" onerror="console.error('Tailwind CDN 載入失敗')"></script>

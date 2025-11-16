@@ -243,6 +243,8 @@ const AppLauncherDemo: React.FC = () => {
             if (!data.categories.includes(activeCategory)) {
               setActiveCategory(data.categories[0] || "AI員工");
             }
+            // 預載入所有圖片到緩存
+            preloadAppImages(data.apps);
             return;
           }
         }
@@ -267,6 +269,8 @@ const AppLauncherDemo: React.FC = () => {
             if (!data.categories.includes(activeCategory)) {
               setActiveCategory(data.categories[0] || "AI員工");
             }
+            // 預載入所有圖片到緩存
+            preloadAppImages(data.apps);
             return;
           }
         }
@@ -284,6 +288,8 @@ const AppLauncherDemo: React.FC = () => {
             if (!parsed.categories.includes(activeCategory)) {
               setActiveCategory(parsed.categories[0] || "AI員工");
             }
+            // 預載入所有圖片到緩存
+            preloadAppImages(parsed.apps);
           }
         }
       } catch {}
@@ -1350,10 +1356,68 @@ function getFallbackIcon(name: string, category?: string): string {
   return '🧩';
 }
 
-/** ========= 圖示渲染組件（支援錯誤處理） ========= */
+/** ========= 預載入應用程式圖片到緩存 ========= */
+function preloadAppImages(apps: App[]) {
+  if (!('caches' in window) || !('serviceWorker' in navigator)) {
+    return; // 瀏覽器不支持緩存
+  }
+
+  // 提取所有圖片 URL
+  const imageUrls = apps
+    .map(app => app.icon)
+    .filter(icon => 
+      typeof icon === "string" && 
+      (icon.startsWith("http") || icon.startsWith("/images/"))
+    );
+
+  if (imageUrls.length === 0) {
+    return;
+  }
+
+  // 批量預載入圖片（限制並發數，避免過載）
+  const batchSize = 5;
+  const preloadBatch = async (urls: string[]) => {
+    const cache = await caches.open('aijob-images-v1');
+    
+    for (const url of urls) {
+      try {
+        // 檢查是否已經緩存
+        const cached = await cache.match(url);
+        if (cached) {
+          continue; // 已經緩存，跳過
+        }
+
+        // 嘗試從網路獲取並緩存
+        const response = await fetch(url, { 
+          mode: 'cors',
+          cache: 'no-cache' // 強制從網路獲取最新版本
+        });
+
+        if (response.ok) {
+          await cache.put(url, response.clone());
+          console.log('[Image Cache] Preloaded:', url);
+        }
+      } catch (error) {
+        // 靜默失敗，不影響應用運行
+        console.debug('[Image Cache] Failed to preload:', url);
+      }
+    }
+  };
+
+  // 分批處理，避免一次性載入過多
+  for (let i = 0; i < imageUrls.length; i += batchSize) {
+    const batch = imageUrls.slice(i, i + batchSize);
+    // 使用 setTimeout 延遲，避免阻塞主線程
+    setTimeout(() => preloadBatch(batch), i * 100);
+  }
+}
+
+/** ========= 圖示渲染組件（支援錯誤處理和離線緩存） ========= */
 const IconRenderer: React.FC<{ icon: string; alt: string; category?: string }> = ({ icon, alt, category }) => {
   const [imageError, setImageError] = React.useState(false);
   const [imageLoaded, setImageLoaded] = React.useState(false);
+  const [imageSrc, setImageSrc] = React.useState(icon);
+  const [isOffline, setIsOffline] = React.useState(!navigator.onLine);
   
   const isImage =
     typeof icon === "string" &&
@@ -1361,13 +1425,50 @@ const IconRenderer: React.FC<{ icon: string; alt: string; category?: string }> =
   
   const fallbackIcon = getFallbackIcon(alt, category);
   
+  // 監聽網路狀態
+  React.useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+  
+  // 嘗試從緩存獲取圖片（離線時）
+  React.useEffect(() => {
+    if (isImage && (isOffline || imageError)) {
+      // 嘗試從 Service Worker 緩存獲取
+      if ('caches' in window) {
+        caches.match(icon).then((cachedResponse) => {
+          if (cachedResponse) {
+            cachedResponse.blob().then((blob) => {
+              const blobUrl = URL.createObjectURL(blob);
+              setImageSrc(blobUrl);
+              setImageError(false);
+              console.log('[IconRenderer] Using cached image:', icon);
+            }).catch(() => {
+              // 如果緩存讀取失敗，保持原 URL
+            });
+          }
+        }).catch(() => {
+          // 緩存查詢失敗，保持原 URL
+        });
+      }
+    }
+  }, [icon, isOffline, imageError, isImage]);
+  
   if (!isImage) {
     // 如果是emoji，直接顯示
-  return <span className="text-2xl">{icon}</span>;
+    return <span className="text-2xl">{icon}</span>;
   }
   
   // 如果圖片載入失敗，顯示 fallback
-  if (imageError) {
+  if (imageError && !isOffline) {
     return <span className="text-2xl">{fallbackIcon}</span>;
   }
   
@@ -1375,12 +1476,21 @@ const IconRenderer: React.FC<{ icon: string; alt: string; category?: string }> =
   return (
     <>
       <img 
-        src={icon} 
+        src={imageSrc} 
         alt={alt} 
         className={`h-full w-full object-contain ${imageLoaded ? 'opacity-100' : 'opacity-0'} transition-opacity duration-200`}
         loading="lazy"
-        onLoad={() => setImageLoaded(true)}
+        onLoad={() => {
+          setImageLoaded(true);
+          setImageError(false);
+        }}
         onError={() => {
+          // 如果當前是緩存 URL，嘗試原始 URL
+          if (imageSrc !== icon) {
+            setImageSrc(icon);
+            setImageError(false);
+            return;
+          }
           setImageError(true);
           setImageLoaded(false);
         }}

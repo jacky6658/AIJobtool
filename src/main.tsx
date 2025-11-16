@@ -4,6 +4,31 @@ import AppLauncherDemo from "./App";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import "./index.css";
 
+// 註冊 Service Worker 用於圖片緩存
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then((registration) => {
+        console.log('[Service Worker] Registered successfully:', registration.scope);
+        
+        // 檢查更新
+        registration.addEventListener('updatefound', () => {
+          const newWorker = registration.installing;
+          if (newWorker) {
+            newWorker.addEventListener('statechange', () => {
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                console.log('[Service Worker] New version available');
+              }
+            });
+          }
+        });
+      })
+      .catch((error) => {
+        console.warn('[Service Worker] Registration failed:', error);
+      });
+  });
+}
+
 // 檢查根元素是否存在
 const rootElement = document.getElementById("root");
 if (!rootElement) {

@@ -61,6 +61,33 @@ export const SEOHead: React.FC<SEOHeadProps> = ({
     updateTwitterMeta('twitter:description', description);
 
     // 添加結構化資料（使用最新的資料）
+    // 1. WebSite 結構化資料（Google 推薦的基礎結構化資料）
+    const websiteStructuredData = {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "AIJob AI工具庫",
+      "alternateName": "AIJob 自動化學院",
+      "url": siteUrl,
+      "description": description,
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": siteUrl + "/#search={search_term_string}"
+        },
+        "query-input": "required name=search_term_string"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "AIJob 自動化學院",
+        "logo": {
+          "@type": "ImageObject",
+          "url": imageUrl
+        }
+      }
+    };
+
+    // 2. EducationalOrganization 結構化資料
     const currentStructuredData = {
       "@context": "https://schema.org",
       "@type": "EducationalOrganization",
@@ -99,10 +126,22 @@ export const SEOHead: React.FC<SEOHeadProps> = ({
       }
     };
 
-    let script = document.querySelector('script[type="application/ld+json"]');
+    // 更新或創建 WebSite 結構化資料
+    let websiteScript = document.querySelector('script[data-schema="website"]');
+    if (!websiteScript) {
+      websiteScript = document.createElement('script');
+      websiteScript.setAttribute('type', 'application/ld+json');
+      websiteScript.setAttribute('data-schema', 'website');
+      document.head.appendChild(websiteScript);
+    }
+    websiteScript.textContent = JSON.stringify(websiteStructuredData, null, 2);
+
+    // 更新或創建 EducationalOrganization 結構化資料
+    let script = document.querySelector('script[data-schema="organization"]');
     if (!script) {
       script = document.createElement('script');
       script.setAttribute('type', 'application/ld+json');
+      script.setAttribute('data-schema', 'organization');
       document.head.appendChild(script);
     }
     script.textContent = JSON.stringify(currentStructuredData, null, 2);
