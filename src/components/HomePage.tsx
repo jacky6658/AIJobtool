@@ -144,8 +144,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigateToCategory, onOpen
               <svg className="w-5 h-5 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
-              <span className="hidden sm:inline relative z-10">探索 AI 員工工具</span>
-              <span className="sm:hidden relative z-10">探索工具</span>
+              <span className="relative z-10">探索AI工具</span>
             </button>
           </div>
         </div>
