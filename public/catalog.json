@@ -234,8 +234,14 @@
       "href": "https://notebooklm.google.com/?authuser=1",
       "icon": "https://www.google.com/s2/favicons?domain=notebooklm.google.com&sz=128",
       "category": "AI文書",
-      "description": "",
-      "tags": []
+      "description": "整合文件、筆記與 AI 思考助手，快速生成摘要與洞察。\n讓學習、研究、寫作變得更高效、有邏輯、好理解。",
+      "tags": [
+        "AI筆記",
+        "文件整理",
+        "研究輔助",
+        "自動摘要",
+        "學習工具"
+      ]
     }
   ]
 }
