@@ -78,7 +78,7 @@ app.use((req, res, next) => {
     "default-src 'self'; " +
     "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com; " + // 允許 Tailwind CDN
     "style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; " + // 允許 Tailwind CDN 樣式
-    "img-src 'self' data: https: http:; " +
+    "img-src 'self' data: blob: https: http:; " + // 允許 blob URL（用於快取圖片）
     "font-src 'self' data: https:; " +
     "connect-src 'self' https:; " +
     "frame-src 'self' https://www.youtube.com https://youtube.com; " + // 允許 YouTube iframe
