@@ -1,0 +1,16 @@
+# robots.txt for AIJob AI工具庫
+# https://aijobaitools.zeabur.app
+
+User-agent: *
+Allow: /
+
+# 禁止爬取管理員相關頁面（如果有的話）
+Disallow: /admin
+Disallow: /api/
+
+# Sitemap 位置
+Sitemap: https://aijobaitools.zeabur.app/sitemap.xml
+
+# 爬取延遲（可選）
+# Crawl-delay: 1
+
