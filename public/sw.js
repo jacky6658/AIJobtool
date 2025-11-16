@@ -1,6 +1,6 @@
 // Service Worker for Image Caching
 // 版本號，更新時會觸發 Service Worker 更新
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3';
 const IMAGE_CACHE_NAME = `aijob-images-${CACHE_VERSION}`;
 
 // 安裝 Service Worker
@@ -8,6 +8,13 @@ self.addEventListener('install', (event) => {
   console.log('[Service Worker] Installing...', CACHE_VERSION);
   // 立即激活，不需要等待其他 Service Worker 關閉
   self.skipWaiting();
+});
+
+// 監聽 skipWaiting 消息
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 // 激活 Service Worker
@@ -33,6 +40,16 @@ self.addEventListener('activate', (event) => {
 // 攔截網路請求
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
+  
+  // 忽略所有 API 請求，讓它們直接通過（不進行快取）
+  if (url.pathname.startsWith('/api/') || url.pathname.includes('/api/')) {
+    return; // 不處理 API 請求，讓瀏覽器直接處理
+  }
+  
+  // 忽略 catalog.json 請求，讓瀏覽器直接處理（避免快取問題）
+  if (url.pathname.includes('catalog.json')) {
+    return; // 不處理 catalog.json，讓瀏覽器直接處理
+  }
   
   // 忽略 Google Play 的日誌請求（避免 401 錯誤）
   if (url.hostname.includes('play.google.com') && url.pathname.includes('/log')) {
