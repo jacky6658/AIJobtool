@@ -977,68 +977,97 @@ const AppLauncherDemo: React.FC = () => {
                   return (
                     <div
                       key={app.name + app.href}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => setSelectedApp(app)}
-                      className="group relative rounded-[20px] sm:rounded-2xl p-px transition-all duration-200 active:scale-[0.96] sm:hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-indigo-300/60"
+                      className="flex flex-col items-center"
                     >
-                      {/* hover 漸層光暈 - 只在桌面版顯示 */}
-                      <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-150 bg-gradient-to-br from-indigo-200/80 via-sky-200/60 to-transparent hidden sm:block" />
-
+                      {/* 手機版：只有圖片和名稱，無卡片容器 */}
                       <div
-                        className={`relative rounded-[20px] sm:rounded-[14px] p-4 sm:p-4 md:p-5 lg:p-4 xl:p-5 flex flex-col items-center text-center backdrop-blur-sm h-full min-h-[160px] sm:h-[280px] md:h-[300px] lg:h-[280px] xl:h-[300px] transition-all duration-200 ${
-                          isDark ? "bg-slate-900/95 border border-slate-800/50 shadow-sm" : "bg-white/98 border border-slate-200/60 shadow-sm"
-                        }`}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => setSelectedApp(app)}
+                        className="flex flex-col items-center w-full active:scale-95 transition-transform duration-200 sm:hidden"
                       >
-                        {/* 收藏 - 手機版隱藏，桌面版顯示 */}
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); toggleFavorite(app); }}
-                          className={`absolute right-2 top-2 sm:right-3 sm:top-3 text-base sm:text-lg transition-transform ${
-                            isFavoriteApp ? "text-yellow-400 scale-110" : "text-slate-300 hover:text-slate-400"
-                          } hidden sm:block`}
-                          aria-label={isFavoriteApp ? "移除收藏" : "加入收藏"}
-                          title={isFavoriteApp ? "移除收藏" : "加入收藏"}
-                        >
-                          {isFavoriteApp ? "★" : "☆"}
-                        </button>
-
-                        {/* 刪除（只有 Admin 可以刪公開）- 手機版隱藏，桌面版顯示 */}
-                        {isAdmin && isCatalogApp && (
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); deleteApp(app); }}
-                            className="absolute left-2 top-2 sm:left-3 sm:top-3 text-xs sm:text-sm text-rose-400 hover:text-rose-500 hidden sm:block"
-                            aria-label="刪除應用"
-                            title="刪除應用"
-                          >
-                            🗑️
-                          </button>
-                        )}
-
                         {/* 圖示 - 手機版更大，像 iPhone App 圖示 - iOS 風格 */}
-                        <div className={`mb-3 sm:mb-3 flex h-20 w-20 sm:h-12 sm:w-12 items-center justify-center rounded-[22px] sm:rounded-xl ${isDark ? "bg-slate-800/90" : "bg-gradient-to-br from-slate-50 to-slate-100"} overflow-hidden shadow-lg sm:shadow-none relative transition-transform active:scale-95`}>
+                        <div className={`mb-2 flex h-20 w-20 items-center justify-center rounded-[22px] ${isDark ? "bg-slate-800/90" : "bg-gradient-to-br from-slate-50 to-slate-100"} overflow-hidden shadow-lg relative transition-transform active:scale-95`}>
                           {renderIcon(app.icon, app.name, app.category)}
                         </div>
 
-                        {/* 名稱 - 手機版最多兩行，桌面版顯示完整資訊 - iOS 風格 */}
-                        <div className="font-semibold text-[13px] sm:text-sm md:text-base mb-0 sm:mb-1 text-center w-full px-1 break-words leading-[1.3] tracking-tight">
+                        {/* 名稱 - 手機版最多兩行 */}
+                        <div className="font-semibold text-[13px] text-center w-full px-1 break-words leading-[1.3] tracking-tight" style={{
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden',
+                          maxHeight: '2.6em'
+                        }}>
                           {app.name}
                         </div>
-                        
-                        {/* 分類、簡介、標籤 - 只在桌面版顯示 */}
-                        <div className="hidden sm:block w-full flex-1 flex flex-col">
-                          <div className="text-[11px] md:text-xs text-indigo-500 mb-2">{app.category}</div>
-                          <div className="text-xs md:text-sm text-slate-500 dark:text-slate-400 mb-3 line-clamp-3 flex-1 break-words">{app.description}</div>
-                          {app.tags && app.tags.length > 0 && (
-                            <div className="tags-container mt-auto">
-                              {app.tags.slice(0, 3).map((tag) => (
-                                <span key={tag} className="rounded-full bg-sky-100 dark:bg-slate-800/80 px-2 py-0.5 text-[10px] md:text-xs text-black dark:text-slate-400">
-                                #{tag}
-                              </span>
-                            ))}
+                      </div>
+
+                      {/* 桌面版：保持原有卡片樣式 */}
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => setSelectedApp(app)}
+                        className="group relative rounded-2xl p-px transition-all duration-200 hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-indigo-300/60 hidden sm:block w-full"
+                      >
+                        {/* hover 漸層光暈 - 只在桌面版顯示 */}
+                        <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-150 bg-gradient-to-br from-indigo-200/80 via-sky-200/60 to-transparent" />
+
+                        <div
+                          className={`relative rounded-[14px] p-4 md:p-5 lg:p-4 xl:p-5 flex flex-col items-center text-center backdrop-blur-sm h-full min-h-[280px] md:h-[300px] lg:h-[280px] xl:h-[300px] transition-all duration-200 ${
+                            isDark ? "bg-slate-900/95 border border-slate-800/50 shadow-sm" : "bg-white/98 border border-slate-200/60 shadow-sm"
+                          }`}
+                        >
+                          {/* 收藏 - 桌面版顯示 */}
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); toggleFavorite(app); }}
+                            className={`absolute right-3 top-3 text-lg transition-transform ${
+                              isFavoriteApp ? "text-yellow-400 scale-110" : "text-slate-300 hover:text-slate-400"
+                            }`}
+                            aria-label={isFavoriteApp ? "移除收藏" : "加入收藏"}
+                            title={isFavoriteApp ? "移除收藏" : "加入收藏"}
+                          >
+                            {isFavoriteApp ? "★" : "☆"}
+                          </button>
+
+                          {/* 刪除（只有 Admin 可以刪公開）- 桌面版顯示 */}
+                          {isAdmin && isCatalogApp && (
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); deleteApp(app); }}
+                              className="absolute left-3 top-3 text-sm text-rose-400 hover:text-rose-500"
+                              aria-label="刪除應用"
+                              title="刪除應用"
+                            >
+                              🗑️
+                            </button>
+                          )}
+
+                          {/* 圖示 - 桌面版 */}
+                          <div className={`mb-3 flex h-12 w-12 items-center justify-center rounded-xl ${isDark ? "bg-slate-800/90" : "bg-indigo-50"} overflow-hidden relative`}>
+                            {renderIcon(app.icon, app.name, app.category)}
                           </div>
-                        )}
+
+                          {/* 名稱 - 桌面版 */}
+                          <div className="font-semibold text-sm md:text-base mb-1 text-center w-full px-1 break-words leading-[1.3] tracking-tight">
+                            {app.name}
+                          </div>
+                          
+                          {/* 分類、簡介、標籤 - 只在桌面版顯示 */}
+                          <div className="w-full flex-1 flex flex-col">
+                            <div className="text-[11px] md:text-xs text-indigo-500 mb-2">{app.category}</div>
+                            <div className="text-xs md:text-sm text-slate-500 dark:text-slate-400 mb-3 line-clamp-3 flex-1 break-words">{app.description}</div>
+                            {app.tags && app.tags.length > 0 && (
+                              <div className="tags-container mt-auto">
+                                {app.tags.slice(0, 3).map((tag) => (
+                                  <span key={tag} className="rounded-full bg-sky-100 dark:bg-slate-800/80 px-2 py-0.5 text-[10px] md:text-xs text-black dark:text-slate-400">
+                                  #{tag}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          </div>
                         </div>
                       </div>
                     </div>
