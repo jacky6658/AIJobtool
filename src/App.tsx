@@ -969,7 +969,7 @@ const AppLauncherDemo: React.FC = () => {
                       <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-150 bg-gradient-to-br from-indigo-200/80 via-sky-200/60 to-transparent hidden sm:block" />
 
                       <div
-                        className={`relative rounded-[14px] sm:rounded-[14px] p-3 sm:p-4 md:p-5 lg:p-4 xl:p-5 flex flex-col items-center text-center shadow-sm backdrop-blur-sm h-full min-h-[120px] sm:h-[280px] md:h-[300px] lg:h-[280px] xl:h-[300px] ${
+                        className={`relative rounded-[14px] sm:rounded-[14px] p-3 sm:p-4 md:p-5 lg:p-4 xl:p-5 flex flex-col items-center text-center shadow-sm backdrop-blur-sm h-full min-h-[140px] sm:h-[280px] md:h-[300px] lg:h-[280px] xl:h-[300px] ${
                           isDark ? "bg-slate-900/90 border border-slate-800" : "bg-white/95 border border-slate-100"
                         }`}
                       >
@@ -1005,7 +1005,7 @@ const AppLauncherDemo: React.FC = () => {
                         </div>
 
                         {/* 名稱 - 手機版只顯示名稱，桌面版顯示完整資訊 */}
-                        <div className="font-semibold text-xs sm:text-sm md:text-base mb-0 sm:mb-1 line-clamp-2 text-center leading-tight w-full px-1">{app.name}</div>
+                        <div className="font-semibold text-xs sm:text-sm md:text-base mb-0 sm:mb-1 sm:line-clamp-2 text-center leading-tight w-full px-1 break-words">{app.name}</div>
                         
                         {/* 分類、簡介、標籤 - 只在桌面版顯示 */}
                         <div className="hidden sm:block w-full flex-1 flex flex-col">
