@@ -856,7 +856,13 @@ const AppLauncherDemo: React.FC = () => {
         {/* 主內容 */}
         <main className="flex-1 px-4 sm:px-6 py-6 md:py-8 md:ml-64">
           {currentPage === "home" ? (
-            <HomePage />
+            <HomePage 
+              onNavigateToCategory={(category) => {
+                setActiveCategory(category);
+                setCurrentPage("tools");
+              }}
+              onOpenSidebar={() => setSidebarOpen(true)}
+            />
           ) : (
             <>
               <header className="mb-6">
@@ -1009,11 +1015,11 @@ const AppLauncherDemo: React.FC = () => {
                             <div className="flex flex-wrap justify-center gap-1 mt-auto">
                               {app.tags.slice(0, 3).map((tag) => (
                                 <span key={tag} className="rounded-full bg-sky-100 dark:bg-slate-800/80 px-2 py-0.5 text-[10px] md:text-xs text-black dark:text-slate-400">
-                                  #{tag}
-                                </span>
-                              ))}
-                            </div>
-                          )}
+                                #{tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                         </div>
                       </div>
                     </div>
@@ -1309,7 +1315,7 @@ const IconRenderer: React.FC<{ icon: string; alt: string; category?: string }> =
   
   if (!isImage) {
     // 如果是emoji，直接顯示
-    return <span className="text-2xl">{icon}</span>;
+  return <span className="text-2xl">{icon}</span>;
   }
   
   // 如果圖片載入失敗，顯示 fallback

@@ -7,12 +7,25 @@ import { isValidUrl } from "../utils/security";
  */
 interface HomePageProps {
   isDark?: boolean; // 保留參數以兼容，但不再使用
+  onNavigateToCategory?: (category: string) => void; // 導航到指定分類（桌面版）
+  onOpenSidebar?: () => void; // 打開側邊欄（手機版）
 }
 
-export const HomePage: React.FC<HomePageProps> = () => {
+export const HomePage: React.FC<HomePageProps> = ({ onNavigateToCategory, onOpenSidebar }) => {
   const [titleVisible, setTitleVisible] = useState(false);
   const [contentVisible, setContentVisible] = useState(false);
   const [videoVisible, setVideoVisible] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // 檢測是否為手機版
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // 頁面載入動畫 - 漸進式顯示
   useEffect(() => {
@@ -110,6 +123,29 @@ export const HomePage: React.FC<HomePageProps> = () => {
               style={{ border: 0 }}
               sandbox="allow-scripts allow-same-origin allow-presentation"
             />
+          </div>
+          
+          {/* 探索 AI 員工按鈕 */}
+          <div className="mt-6 text-center">
+            <button
+              onClick={() => {
+                // 桌面版：導航到 AI員工 分類
+                if (!isMobile && onNavigateToCategory) {
+                  onNavigateToCategory("AI員工");
+                } 
+                // 手機版：打開側邊欄
+                else if (isMobile && onOpenSidebar) {
+                  onOpenSidebar();
+                }
+              }}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 hover:from-indigo-700 hover:to-purple-700 active:scale-95"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              <span className="hidden sm:inline">探索 AI 員工工具</span>
+              <span className="sm:hidden">探索工具</span>
+            </button>
           </div>
         </div>
       )}
