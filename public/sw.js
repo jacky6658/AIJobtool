@@ -57,21 +57,27 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     caches.open(IMAGE_CACHE_NAME).then((cache) => {
       return cache.match(event.request).then((cachedResponse) => {
-        // 如果有緩存，直接返回
+        // 如果有緩存，直接返回（優先使用緩存）
         if (cachedResponse) {
           console.log('[Service Worker] Serving from cache:', event.request.url);
           return cachedResponse;
         }
 
         // 如果沒有緩存，從網路獲取
-        return fetch(event.request)
+        return fetch(event.request, {
+          mode: 'cors',
+          cache: 'no-cache'
+        })
           .then((response) => {
-            // 只緩存成功的響應
-            if (response && response.status === 200) {
+            // 只緩存成功的響應（允許 basic 和 cors 類型）
+            if (response && response.status === 200 && (response.type === 'basic' || response.type === 'cors')) {
               // 克隆響應，因為響應只能使用一次
               const responseToCache = response.clone();
+              // 異步緩存，不阻塞響應
               cache.put(event.request, responseToCache).then(() => {
                 console.log('[Service Worker] Cached new image:', event.request.url);
+              }).catch((err) => {
+                console.warn('[Service Worker] Failed to cache image:', event.request.url, err);
               });
             }
             return response;
@@ -81,9 +87,11 @@ self.addEventListener('fetch', (event) => {
             // 如果網路請求失敗，再次嘗試從緩存獲取
             return cache.match(event.request).then((cachedResponse) => {
               if (cachedResponse) {
+                console.log('[Service Worker] Serving from cache after fetch failed:', event.request.url);
                 return cachedResponse;
               }
               // 如果緩存也沒有，返回錯誤
+              console.error('[Service Worker] No cache available for:', event.request.url);
               throw error;
             });
           });

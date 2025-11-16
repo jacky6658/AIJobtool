@@ -128,10 +128,10 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigateToCategory, onOpen
           {/* 探索 AI 員工按鈕 */}
           <div className="mt-12 text-center">
             <button
-              onClick={() => {
+              onClick={async () => {
                 // 桌面版：導航到 AI員工 分類
                 if (!isMobile && onNavigateToCategory) {
-                  onNavigateToCategory("AI員工");
+                  await onNavigateToCategory("AI員工");
                 } 
                 // 手機版：打開側邊欄
                 else if (isMobile && onOpenSidebar) {

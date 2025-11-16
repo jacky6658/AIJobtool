@@ -248,9 +248,10 @@ const AppLauncherDemo: React.FC = () => {
             if (!data.categories.includes(activeCategory)) {
               setActiveCategory(data.categories[0] || "AI員工");
             }
-            // 預載入所有圖片到緩存
-            preloadAppImages(data.apps);
+            // 先設置 catalog 和 loading 狀態，讓 UI 立即更新
             setCatalogLoading(false);
+            // 然後在背景預載入圖片（不阻塞 UI）
+            setTimeout(() => preloadAppImages(data.apps), 0);
             return;
           }
         }
@@ -276,9 +277,10 @@ const AppLauncherDemo: React.FC = () => {
             if (!data.categories.includes(activeCategory)) {
               setActiveCategory(data.categories[0] || "AI員工");
             }
-            // 預載入所有圖片到緩存
-            preloadAppImages(data.apps);
+            // 先設置 catalog 和 loading 狀態，讓 UI 立即更新
             setCatalogLoading(false);
+            // 然後在背景預載入圖片（不阻塞 UI）
+            setTimeout(() => preloadAppImages(data.apps), 0);
             return;
           }
         }
@@ -296,13 +298,17 @@ const AppLauncherDemo: React.FC = () => {
             if (!parsed.categories.includes(activeCategory)) {
               setActiveCategory(parsed.categories[0] || "AI員工");
             }
-            // 預載入所有圖片到緩存
-            preloadAppImages(parsed.apps);
+            // 先設置 catalog，讓 UI 立即更新
+            setCatalogLoading(false);
+            // 然後在背景預載入圖片（不阻塞 UI）
+            setTimeout(() => preloadAppImages(parsed.apps), 0);
+          } else {
+            setCatalogLoading(false);
           }
         }
-      } catch {}
-      
-      setCatalogLoading(false);
+      } catch {
+        setCatalogLoading(false);
+      }
     };
     
     // 將 loadCatalog 存儲到 ref，以便在其他地方調用
@@ -894,12 +900,15 @@ const AppLauncherDemo: React.FC = () => {
           {currentPage === "home" ? (
             <HomePage 
               onNavigateToCategory={async (category) => {
-                // 強制重新載入 catalog 以確保獲取最新數據（避免快取問題）
-                if (loadCatalogRef.current) {
-                  await loadCatalogRef.current(true);
-                }
+                // 先切換頁面和分類，讓用戶立即看到響應
                 setActiveCategory(category);
                 setCurrentPage("tools");
+                // 然後在背景重新載入 catalog（不阻塞 UI）
+                if (loadCatalogRef.current) {
+                  loadCatalogRef.current(true).catch(err => {
+                    console.warn('背景重新載入 catalog 失敗:', err);
+                  });
+                }
               }}
               onOpenSidebar={() => setSidebarOpen(true)}
             />
@@ -1004,9 +1013,9 @@ const AppLauncherDemo: React.FC = () => {
                     >
                       {/* 手機版：只有圖片和名稱，無卡片容器 */}
                       <div
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => setSelectedApp(app)}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setSelectedApp(app)}
                         className="flex flex-col items-center w-full active:scale-95 transition-transform duration-200 sm:hidden"
                       >
                         {/* 圖示 - 手機版更大，像 iPhone App 圖示 - iOS 風格 */}
@@ -1042,35 +1051,35 @@ const AppLauncherDemo: React.FC = () => {
                           }`}
                         >
                           {/* 收藏 - 桌面版顯示 */}
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); toggleFavorite(app); }}
-                            className={`absolute right-3 top-3 text-lg transition-transform ${
-                              isFavoriteApp ? "text-yellow-400 scale-110" : "text-slate-300 hover:text-slate-400"
-                            }`}
-                            aria-label={isFavoriteApp ? "移除收藏" : "加入收藏"}
-                            title={isFavoriteApp ? "移除收藏" : "加入收藏"}
-                          >
-                            {isFavoriteApp ? "★" : "☆"}
-                          </button>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); toggleFavorite(app); }}
+                          className={`absolute right-3 top-3 text-lg transition-transform ${
+                            isFavoriteApp ? "text-yellow-400 scale-110" : "text-slate-300 hover:text-slate-400"
+                          }`}
+                          aria-label={isFavoriteApp ? "移除收藏" : "加入收藏"}
+                          title={isFavoriteApp ? "移除收藏" : "加入收藏"}
+                        >
+                          {isFavoriteApp ? "★" : "☆"}
+                        </button>
 
                           {/* 刪除（只有 Admin 可以刪公開）- 桌面版顯示 */}
-                          {isAdmin && isCatalogApp && (
-                            <button
-                              type="button"
-                              onClick={(e) => { e.stopPropagation(); deleteApp(app); }}
-                              className="absolute left-3 top-3 text-sm text-rose-400 hover:text-rose-500"
-                              aria-label="刪除應用"
-                              title="刪除應用"
-                            >
-                              🗑️
-                            </button>
-                          )}
+                        {isAdmin && isCatalogApp && (
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); deleteApp(app); }}
+                            className="absolute left-3 top-3 text-sm text-rose-400 hover:text-rose-500"
+                            aria-label="刪除應用"
+                            title="刪除應用"
+                          >
+                            🗑️
+                          </button>
+                        )}
 
                           {/* 圖示 - 桌面版 */}
                           <div className={`mb-3 flex h-12 w-12 items-center justify-center rounded-xl ${isDark ? "bg-slate-800/90" : "bg-indigo-50"} overflow-hidden relative`}>
                             {renderIcon(app.icon, app.name, app.category)}
-                          </div>
+                        </div>
 
                           {/* 名稱 - 桌面版 */}
                           <div className="font-semibold text-sm md:text-base mb-1 text-center w-full px-1 break-words leading-[1.3] tracking-tight">
@@ -1085,11 +1094,11 @@ const AppLauncherDemo: React.FC = () => {
                               <div className="tags-container mt-auto">
                                 {app.tags.slice(0, 3).map((tag) => (
                                   <span key={tag} className="rounded-full bg-sky-100 dark:bg-slate-800/80 px-2 py-0.5 text-[10px] md:text-xs text-black dark:text-slate-400">
-                                  #{tag}
-                                </span>
-                              ))}
-                            </div>
-                          )}
+                                #{tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                           </div>
                         </div>
                       </div>
@@ -1403,6 +1412,7 @@ function preloadAppImages(apps: App[]) {
         // 檢查是否已經緩存
         const cached = await cache.match(url);
         if (cached) {
+          console.log('[Image Cache] Already cached:', url);
           continue; // 已經緩存，跳過
         }
 
@@ -1412,13 +1422,15 @@ function preloadAppImages(apps: App[]) {
           cache: 'no-cache' // 強制從網路獲取最新版本
         });
 
-        if (response.ok) {
+        if (response.ok && (response.type === 'basic' || response.type === 'cors')) {
           await cache.put(url, response.clone());
           console.log('[Image Cache] Preloaded:', url);
+        } else {
+          console.warn('[Image Cache] Failed to preload (invalid response):', url, response.status, response.type);
         }
       } catch (error) {
         // 靜默失敗，不影響應用運行
-        console.debug('[Image Cache] Failed to preload:', url);
+        console.debug('[Image Cache] Failed to preload:', url, error);
       }
     }
   };
@@ -1467,10 +1479,10 @@ const IconRenderer: React.FC<{ icon: string; alt: string; category?: string }> =
     };
   }, []);
   
-  // 嘗試從緩存獲取圖片（離線時）
+  // 嘗試從緩存獲取圖片（優先使用緩存，無論是否離線）
   React.useEffect(() => {
-    if (isImage && (isOffline || imageError)) {
-      // 嘗試從 Service Worker 緩存獲取
+    if (isImage && !isGoogleFavicon) {
+      // 優先嘗試從 Service Worker 緩存獲取
       if ('caches' in window) {
         caches.match(icon).then((cachedResponse) => {
           if (cachedResponse) {
@@ -1480,19 +1492,27 @@ const IconRenderer: React.FC<{ icon: string; alt: string; category?: string }> =
               setImageError(false);
               console.log('[IconRenderer] Using cached image:', icon);
             }).catch(() => {
-              // 如果緩存讀取失敗，保持原 URL
+              // 如果緩存讀取失敗，使用原始 URL
+              setImageSrc(icon);
             });
+          } else {
+            // 緩存中沒有，使用原始 URL
+            setImageSrc(icon);
           }
         }).catch(() => {
-          // 緩存查詢失敗，保持原 URL
+          // 緩存查詢失敗，使用原始 URL
+          setImageSrc(icon);
         });
+      } else {
+        // 不支持緩存，直接使用原始 URL
+        setImageSrc(icon);
       }
     }
-  }, [icon, isOffline, imageError, isImage]);
+  }, [icon, isImage, isGoogleFavicon]);
   
   if (!isImage) {
     // 如果是emoji，直接顯示
-    return <span className="text-2xl">{icon}</span>;
+  return <span className="text-2xl">{icon}</span>;
   }
   
   // 如果圖片載入失敗，顯示 fallback
@@ -1514,13 +1534,35 @@ const IconRenderer: React.FC<{ icon: string; alt: string; category?: string }> =
         }}
         onError={() => {
           // 如果當前是緩存 URL，嘗試原始 URL
-          if (imageSrc !== icon) {
+          if (imageSrc !== icon && imageSrc.startsWith('blob:')) {
             setImageSrc(icon);
             setImageError(false);
             return;
           }
-          setImageError(true);
-          setImageLoaded(false);
+          // 如果原始 URL 也失敗，嘗試從緩存讀取（如果還沒試過）
+          if (imageSrc === icon && 'caches' in window) {
+            caches.match(icon).then((cachedResponse) => {
+              if (cachedResponse) {
+                cachedResponse.blob().then((blob) => {
+                  const blobUrl = URL.createObjectURL(blob);
+                  setImageSrc(blobUrl);
+                  setImageError(false);
+                }).catch(() => {
+                  setImageError(true);
+                  setImageLoaded(false);
+                });
+              } else {
+                setImageError(true);
+                setImageLoaded(false);
+              }
+            }).catch(() => {
+              setImageError(true);
+              setImageLoaded(false);
+            });
+          } else {
+            setImageError(true);
+            setImageLoaded(false);
+          }
         }}
       />
       {!imageLoaded && !imageError && (
