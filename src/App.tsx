@@ -1460,12 +1460,7 @@ const IconRenderer: React.FC<{ icon: string; alt: string; category?: string }> =
   const isGoogleFavicon = typeof icon === "string" && 
     (icon.includes("google.com/s2/favicons") || icon.includes("gstatic.com/favicon"));
   
-  // 如果是 Google favicon 服務，直接使用 fallback，不嘗試載入
-  if (isImage && isGoogleFavicon) {
-    return <span className="text-2xl">{fallbackIcon}</span>;
-  }
-  
-  // 監聽網路狀態
+  // 監聽網路狀態（必須在所有條件返回之前調用）
   React.useEffect(() => {
     const handleOnline = () => setIsOffline(false);
     const handleOffline = () => setIsOffline(true);
@@ -1510,9 +1505,15 @@ const IconRenderer: React.FC<{ icon: string; alt: string; category?: string }> =
     }
   }, [icon, isImage, isGoogleFavicon]);
   
+  // 條件返回必須在所有 Hooks 之後
   if (!isImage) {
     // 如果是emoji，直接顯示
   return <span className="text-2xl">{icon}</span>;
+  }
+  
+  // 如果是 Google favicon 服務，直接使用 fallback，不嘗試載入
+  if (isImage && isGoogleFavicon) {
+    return <span className="text-2xl">{fallbackIcon}</span>;
   }
   
   // 如果圖片載入失敗，顯示 fallback
