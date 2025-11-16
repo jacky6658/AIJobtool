@@ -81,7 +81,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigateToCategory, onOpen
           ? 'opacity-100 translate-y-0' 
           : 'opacity-0 -translate-y-8'
       }`}>
-        <h1 className="text-3xl md:text-4xl font-bold mb-4 text-slate-900 bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent animate-gradient">
+        <h1 className="text-3xl md:text-4xl font-bold mb-4 text-blue-900">
           AIJob AI工具庫
         </h1>
         <div className={`max-w-3xl mx-auto space-y-3 transition-all duration-700 delay-200 ${
@@ -126,7 +126,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigateToCategory, onOpen
           </div>
           
           {/* 探索 AI 員工按鈕 */}
-          <div className="mt-6 text-center">
+          <div className="mt-12 text-center">
             <button
               onClick={() => {
                 // 桌面版：導航到 AI員工 分類
@@ -138,13 +138,14 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigateToCategory, onOpen
                   onOpenSidebar();
                 }
               }}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 hover:from-indigo-700 hover:to-purple-700 active:scale-95"
+              className="explore-button inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 hover:from-blue-700 hover:to-blue-800 active:scale-95 relative overflow-hidden"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <span className="absolute inset-0 bg-white opacity-0 button-ripple"></span>
+              <svg className="w-5 h-5 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
-              <span className="hidden sm:inline">探索 AI 員工工具</span>
-              <span className="sm:hidden">探索工具</span>
+              <span className="hidden sm:inline relative z-10">探索 AI 員工工具</span>
+              <span className="sm:hidden relative z-10">探索工具</span>
             </button>
           </div>
         </div>
@@ -189,6 +190,33 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigateToCategory, onOpen
         .animate-gradient {
           background-size: 200% auto;
           animation: gradient 3s ease infinite;
+        }
+        @keyframes ripple {
+          0% {
+            transform: scale(0);
+            opacity: 1;
+          }
+          100% {
+            transform: scale(4);
+            opacity: 0;
+          }
+        }
+        .explore-button:active .button-ripple {
+          animation: ripple 0.6s ease-out;
+        }
+        .explore-button:active {
+          transform: scale(0.95);
+        }
+        @keyframes pulse {
+          0%, 100% {
+            box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.7);
+          }
+          50% {
+            box-shadow: 0 0 0 10px rgba(37, 99, 235, 0);
+          }
+        }
+        .explore-button:hover {
+          animation: pulse 2s infinite;
         }
       `}</style>
     </div>
