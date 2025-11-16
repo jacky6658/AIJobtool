@@ -34,13 +34,21 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   
+  // 忽略 Google Play 的日誌請求（避免 401 錯誤）
+  if (url.hostname.includes('play.google.com') && url.pathname.includes('/log')) {
+    return; // 不處理 Google Play 日誌請求
+  }
+  
+  // 忽略 Google favicon 服務請求（避免 CORS 錯誤）
+  if ((url.hostname.includes('google.com') && url.pathname.includes('/s2/favicons')) ||
+      url.hostname.includes('gstatic.com')) {
+    return; // 不處理 Google favicon 服務請求
+  }
+  
   // 只處理圖片請求
   const isImageRequest = 
     event.request.destination === 'image' ||
-    url.pathname.match(/\.(jpg|jpeg|png|gif|webp|svg|ico)$/i) ||
-    url.searchParams.has('sz') || // Google favicon service
-    url.hostname.includes('google.com/s2/favicons') ||
-    url.hostname.includes('gstatic.com/favicon');
+    url.pathname.match(/\.(jpg|jpeg|png|gif|webp|svg|ico)$/i);
   
   if (!isImageRequest) {
     return; // 不處理非圖片請求
