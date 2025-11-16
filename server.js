@@ -478,6 +478,11 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Zeabur 區域檢測端點
+app.get('/_zeabur/region', (req, res) => {
+  res.json({ region: 'zeabur' });
+});
+
 // Favicon 路由（避免 404 錯誤）
 app.get('/favicon.ico', (req, res) => {
   // 返回 204 No Content，避免瀏覽器重複請求
