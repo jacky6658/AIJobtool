@@ -1,6 +1,6 @@
 // Service Worker for Image Caching
 // 版本號，更新時會觸發 Service Worker 更新
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 const IMAGE_CACHE_NAME = `aijob-images-${CACHE_VERSION}`;
 
 // 安裝 Service Worker
@@ -45,6 +45,11 @@ self.addEventListener('fetch', (event) => {
     return; // 不處理 Google favicon 服務請求
   }
   
+  // 忽略 Wix 靜態資源請求（避免 CORS 錯誤）
+  if (url.hostname.includes('wixstatic.com')) {
+    return; // 不處理 Wix 靜態資源請求
+  }
+  
   // 只處理圖片請求
   const isImageRequest = 
     event.request.destination === 'image' ||
@@ -66,7 +71,8 @@ self.addEventListener('fetch', (event) => {
         // 如果沒有緩存，從網路獲取
         return fetch(event.request, {
           mode: 'cors',
-          cache: 'no-cache'
+          cache: 'no-cache',
+          credentials: 'omit' // 不使用 credentials，避免 CORS 問題
         })
           .then((response) => {
             // 只緩存成功的響應（允許 basic 和 cors 類型）
@@ -83,6 +89,24 @@ self.addEventListener('fetch', (event) => {
             return response;
           })
           .catch((error) => {
+            // 靜默處理 CORS 錯誤，不記錄為錯誤
+            const isCorsError = error.message && (
+              error.message.includes('CORS') || 
+              error.message.includes('Failed to fetch') ||
+              error.name === 'TypeError'
+            );
+            
+            if (isCorsError) {
+              // CORS 錯誤時，靜默失敗，不嘗試緩存
+              console.debug('[Service Worker] CORS error, skipping:', event.request.url);
+              // 返回一個空的響應，避免錯誤
+              return new Response('', { 
+                status: 204, 
+                statusText: 'No Content',
+                headers: { 'Content-Type': 'image/png' }
+              });
+            }
+            
             console.log('[Service Worker] Fetch failed, trying cache:', event.request.url);
             // 如果網路請求失敗，再次嘗試從緩存獲取
             return cache.match(event.request).then((cachedResponse) => {
@@ -90,9 +114,13 @@ self.addEventListener('fetch', (event) => {
                 console.log('[Service Worker] Serving from cache after fetch failed:', event.request.url);
                 return cachedResponse;
               }
-              // 如果緩存也沒有，返回錯誤
-              console.error('[Service Worker] No cache available for:', event.request.url);
-              throw error;
+              // 如果緩存也沒有，返回空響應而不是拋出錯誤
+              console.debug('[Service Worker] No cache available for:', event.request.url);
+              return new Response('', { 
+                status: 204, 
+                statusText: 'No Content',
+                headers: { 'Content-Type': 'image/png' }
+              });
             });
           });
       });

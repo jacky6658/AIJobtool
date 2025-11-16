@@ -224,20 +224,25 @@ const AppLauncherDemo: React.FC = () => {
     } catch {}
 
     // 清除舊版本機自訂資料（統一走公開 catalog）
-    try { localStorage.removeItem("aijob-custom-apps"); } catch {}
+    try { 
+      localStorage.removeItem("aijob-custom-apps");
+      // 清除 Admin 草稿，避免使用舊數據
+      localStorage.removeItem("aijob-admin-catalog-draft");
+    } catch {}
 
     // 載入公開 catalog.json
     // 優先從 API 載入（避免快取問題），失敗時使用靜態檔案
-    const loadCatalog = async (forceRefresh = false) => {
+    const loadCatalog = async (forceRefresh = true) => {
       setCatalogLoading(true);
       try {
-        // 先嘗試從 API 載入（避免瀏覽器快取）
+        // 先嘗試從 API 載入（強制不使用快取，確保獲取最新數據）
         const apiEndpoint = CATALOG_API_ENDPOINT || '/api/catalog';
         const apiResponse = await fetch(apiEndpoint, { 
-          cache: forceRefresh ? "no-store" : "default",
+          cache: "no-store",
           headers: {
-            'Cache-Control': forceRefresh ? 'no-cache, no-store, must-revalidate' : 'max-age=0',
-            'Pragma': 'no-cache'
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'If-None-Match': '' // 強制重新驗證
           }
         });
         
@@ -261,11 +266,11 @@ const AppLauncherDemo: React.FC = () => {
       
       // API 載入失敗，嘗試靜態檔案（添加時間戳避免快取）
       try {
-        const timestamp = forceRefresh ? Date.now() : '';
-        const staticResponse = await fetch(`/catalog.json${timestamp ? `?t=${timestamp}` : ''}`, { 
-          cache: forceRefresh ? "no-store" : "default",
+        const timestamp = Date.now(); // 總是添加時間戳，避免快取
+        const staticResponse = await fetch(`/catalog.json?t=${timestamp}`, { 
+          cache: "no-store",
           headers: {
-            'Cache-Control': forceRefresh ? 'no-cache, no-store, must-revalidate' : 'max-age=0',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
             'Pragma': 'no-cache'
           }
         });
@@ -288,27 +293,13 @@ const AppLauncherDemo: React.FC = () => {
         console.warn('靜態檔案載入失敗:', error);
       }
       
-      // 都失敗，檢查是否有 Admin 的草稿版本
-      try {
-        const adminDraft = localStorage.getItem("aijob-admin-catalog-draft");
-        if (adminDraft) {
-          const parsed = JSON.parse(adminDraft);
-          if (Array.isArray(parsed.categories) && Array.isArray(parsed.apps)) {
-            setCatalog(parsed);
-            if (!parsed.categories.includes(activeCategory)) {
-              setActiveCategory(parsed.categories[0] || "AI員工");
-            }
-            // 先設置 catalog，讓 UI 立即更新
-            setCatalogLoading(false);
-            // 然後在背景預載入圖片（不阻塞 UI）
-            setTimeout(() => preloadAppImages(parsed.apps), 0);
-          } else {
-            setCatalogLoading(false);
-          }
-        }
-      } catch {
-        setCatalogLoading(false);
+      // 都失敗，使用 fallback catalog（不從 localStorage 讀取，避免使用舊數據）
+      console.warn('無法載入 catalog，使用 fallback 數據');
+      setCatalog(fallbackCatalog);
+      if (!fallbackCatalog.categories.includes(activeCategory)) {
+        setActiveCategory(fallbackCatalog.categories[0] || "AI員工");
       }
+      setCatalogLoading(false);
     };
     
     // 將 loadCatalog 存儲到 ref，以便在其他地方調用
@@ -1388,14 +1379,15 @@ function preloadAppImages(apps: App[]) {
     return; // 瀏覽器不支持緩存
   }
 
-  // 提取所有圖片 URL（過濾掉 Google favicon 服務，避免 CORS 錯誤）
+  // 提取所有圖片 URL（過濾掉有 CORS 問題的服務，避免錯誤）
   const imageUrls = apps
     .map(app => app.icon)
     .filter(icon => 
       typeof icon === "string" && 
       (icon.startsWith("http") || icon.startsWith("/images/")) &&
       !icon.includes("google.com/s2/favicons") && // 排除 Google favicon 服務
-      !icon.includes("gstatic.com/favicon") // 排除 Google static favicon
+      !icon.includes("gstatic.com/favicon") && // 排除 Google static favicon
+      !icon.includes("wixstatic.com") // 排除 Wix 靜態資源（CORS 問題）
     );
 
   if (imageUrls.length === 0) {
@@ -1456,9 +1448,12 @@ const IconRenderer: React.FC<{ icon: string; alt: string; category?: string }> =
   
   const fallbackIcon = getFallbackIcon(alt, category);
   
-  // 檢測是否為 Google favicon 服務 URL（會導致 CORS 錯誤，直接使用 fallback）
-  const isGoogleFavicon = typeof icon === "string" && 
-    (icon.includes("google.com/s2/favicons") || icon.includes("gstatic.com/favicon"));
+  // 檢測是否為有 CORS 問題的服務 URL（會導致 CORS 錯誤，直接使用 fallback）
+  const hasCorsIssue = typeof icon === "string" && (
+    icon.includes("google.com/s2/favicons") || 
+    icon.includes("gstatic.com/favicon") ||
+    icon.includes("wixstatic.com") // Wix 靜態資源有 CORS 限制
+  );
   
   // 監聽網路狀態（必須在所有條件返回之前調用）
   React.useEffect(() => {
@@ -1476,7 +1471,7 @@ const IconRenderer: React.FC<{ icon: string; alt: string; category?: string }> =
   
   // 嘗試從緩存獲取圖片（優先使用緩存，無論是否離線）
   React.useEffect(() => {
-    if (isImage && !isGoogleFavicon) {
+    if (isImage && !hasCorsIssue) {
       // 優先嘗試從 Service Worker 緩存獲取
       if ('caches' in window) {
         caches.match(icon).then((cachedResponse) => {
@@ -1503,16 +1498,16 @@ const IconRenderer: React.FC<{ icon: string; alt: string; category?: string }> =
         setImageSrc(icon);
       }
     }
-  }, [icon, isImage, isGoogleFavicon]);
+  }, [icon, isImage, hasCorsIssue]);
   
   // 條件返回必須在所有 Hooks 之後
   if (!isImage) {
     // 如果是emoji，直接顯示
-  return <span className="text-2xl">{icon}</span>;
+    return <span className="text-2xl">{icon}</span>;
   }
   
-  // 如果是 Google favicon 服務，直接使用 fallback，不嘗試載入
-  if (isImage && isGoogleFavicon) {
+  // 如果有 CORS 問題的服務，直接使用 fallback，不嘗試載入
+  if (isImage && hasCorsIssue) {
     return <span className="text-2xl">{fallbackIcon}</span>;
   }
   
