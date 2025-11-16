@@ -242,6 +242,71 @@
         "自動摘要",
         "學習工具"
       ]
+    },
+    {
+      "name": "Grok",
+      "href": "https://grok.com/",
+      "icon": "https://www.google.com/s2/favicons?domain=grok.com&sz=128",
+      "category": "AI對話",
+      "description": "透過幽默風格與即時資料回覆的 AI 聊天助手。\n快速取得資訊、答案與觀點，提升思考與決策效率。",
+      "tags": [
+        "AI聊天",
+        "即時查詢",
+        "高效率對話",
+        "觀點型AI"
+      ]
+    },
+    {
+      "name": "Deepseek",
+      "href": "https://deepseek.com/",
+      "icon": "https://www.google.com/s2/favicons?domain=deepseek.com&sz=128",
+      "category": "AI對話",
+      "description": "以即時搜尋與推理能力為核心的 AI 解答助手。\n結合多來源資料分析，提供準確、可引用的知識回覆。",
+      "tags": [
+        "AI搜尋",
+        "即時回答",
+        "多來源查證",
+        "推理分析"
+      ]
+    },
+    {
+      "name": "Llama",
+      "href": "https://www.llama.com/",
+      "icon": "https://www.google.com/s2/favicons?domain=www.llama.com&sz=128",
+      "category": "AI對話",
+      "description": "開源、高效能且可客製化的大型語言模型。\n適用於研究、產品開發與企業級 AI 解決方案。",
+      "tags": [
+        "開源AI",
+        "LLM",
+        "模型訓練",
+        "客製化AI"
+      ]
+    },
+    {
+      "name": "Bigmodel",
+      "href": "https://bigmodel.cn/glm-coding",
+      "icon": "https://www.google.com/s2/favicons?domain=bigmodel.cn&sz=128",
+      "category": "AI對話",
+      "description": "可商用、強大且具多語能力的 AI 大語言模型平台。\n支援編程、知識問答與多場景應用，適合企業與開發者。",
+      "tags": [
+        "中文AI",
+        "多語言",
+        "編程助理",
+        "企業級AI"
+      ]
+    },
+    {
+      "name": "Qwen",
+      "href": "https://qwen.ai/home",
+      "icon": "https://www.google.com/s2/favicons?domain=qwen.ai&sz=128",
+      "category": "AI對話",
+      "description": "具強大語言理解、推理與工具調用能力的全能 AI 助手。\n支援中英文深度對話、寫作、知識查詢與開發場景。",
+      "tags": [
+        "中文AI",
+        "多語言",
+        "推理能力",
+        "工具調用"
+      ]
     }
   ]
 }
