@@ -113,6 +113,7 @@ app.use((req, res, next) => {
   if (req.path.match(/\.(jpg|jpeg|png|gif|webp|svg|ico)$/i) || 
       req.path.startsWith('/images/') ||
       req.path === '/sw.js') {
+      req.path === '/_zeabur/region') {  // ← 加這一行
     return next(); // 圖片和 Service Worker 不需要 CORS
   }
   
@@ -156,6 +157,7 @@ function rateLimit(maxRequests = 10, windowMs = 60000) {
         req.path.startsWith('/images/') ||
         req.path === '/sw.js' ||
         req.path === '/favicon.ico') {
+        req.path === '/_zeabur/region') {  // ← 加這一行  
       return next();
     }
     
