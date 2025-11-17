@@ -439,8 +439,10 @@ const AppLauncherDemo: React.FC = () => {
 
     // Admin：1) localStorage 已登入 2) #admin=密語 3) #logout=1
     // 只有在 ADMIN_HASH 有設定時才啟用 Admin 功能
+    console.log('[Admin] ADMIN_HASH 狀態:', ADMIN_HASH ? '已設定' : '未設定');
     if (!ADMIN_HASH || ADMIN_HASH.trim() === "") {
       // 如果環境變數未設定，清除任何現有的登入狀態
+      console.warn('[Admin] ⚠️ ADMIN_HASH 未設定，Admin 功能已禁用');
       try { 
         localStorage.removeItem("aijob-admin-hash");
         localStorage.removeItem("aijob-admin-secret");
@@ -483,6 +485,9 @@ const AppLauncherDemo: React.FC = () => {
         if (loginMatch) {
           const raw = decodeURIComponent(loginMatch[1]);
           const digest = await sha256Hex(raw);
+          console.log('[Admin Login] 嘗試登入，密碼雜湊:', digest);
+          console.log('[Admin Login] 預期雜湊:', ADMIN_HASH);
+          console.log('[Admin Login] ADMIN_HASH 是否設定:', !!ADMIN_HASH && ADMIN_HASH.trim() !== '');
           if (digest === ADMIN_HASH) {
             try { 
               localStorage.setItem("aijob-admin-hash", ADMIN_HASH);
@@ -491,9 +496,11 @@ const AppLauncherDemo: React.FC = () => {
               // 記錄登入時間（用於會話過期檢查）
               localStorage.setItem("aijob-admin-login-time", Date.now().toString());
             } catch {}
+            console.log('[Admin Login] ✅ 登入成功！');
             setIsAdmin(true);
           } else {
             // 密碼錯誤，確保登出狀態
+            console.warn('[Admin Login] ❌ 登入失敗：密碼雜湊不匹配');
             try { 
               localStorage.removeItem("aijob-admin-hash");
               localStorage.removeItem("aijob-admin-secret");
