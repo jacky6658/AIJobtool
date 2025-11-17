@@ -1527,7 +1527,7 @@ function preloadAppImages(apps: App[]) {
   // 批量預載入圖片（限制並發數，避免過載）
   const batchSize = 5;
   const preloadBatch = async (urls: string[]) => {
-    const cache = await caches.open('aijob-images-v2');
+    const cache = await caches.open('aijob-images-v3');
     
     for (const url of urls) {
       try {

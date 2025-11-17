@@ -91,9 +91,9 @@ self.addEventListener('fetch', (event) => {
         
         // 對於外部 URL，先嘗試 no-cors 模式
         const fetchOptions = {
-          cache: 'no-cache' as RequestCache,
-          mode: (isExternal ? 'no-cors' : 'cors') as RequestMode,
-          credentials: 'omit' as RequestCredentials
+          cache: 'no-cache',
+          mode: isExternal ? 'no-cors' : 'cors',
+          credentials: 'omit'
         };
         
         return fetch(event.request, fetchOptions)
