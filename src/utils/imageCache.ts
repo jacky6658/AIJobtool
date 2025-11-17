@@ -3,7 +3,7 @@
  * 使用 Cache API 和 Service Worker 實現離線圖片緩存
  */
 
-const IMAGE_CACHE_NAME = 'aijob-images-v4';
+const IMAGE_CACHE_NAME = 'aijob-images-v5';
 
 /**
  * 預載入圖片到緩存

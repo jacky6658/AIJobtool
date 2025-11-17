@@ -49,6 +49,9 @@ const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
   : [];
 
 // IP 白名單（可選，用於限制管理員 API 訪問）
+// 設定方式：在 Zeabur 環境變數中設定 IP_WHITELIST，多個 IP 用逗號分隔
+// 例如：IP_WHITELIST=61.219.19.197,192.168.1.1
+// 注意：此白名單只影響管理員 API（POST /api/catalog），不影響圖片載入
 const IP_WHITELIST = process.env.IP_WHITELIST
   ? process.env.IP_WHITELIST.split(',').map(ip => ip.trim())
   : [];
@@ -56,8 +59,14 @@ const IP_WHITELIST = process.env.IP_WHITELIST
 // Rate Limiting 儲存（簡單記憶體儲存，生產環境應使用 Redis）
 const rateLimitStore = new Map();
 
+// Zeabur 區域檢測端點（必須在所有中間件之前）
+app.get('/_zeabur/region', (req, res) => {
+  res.json({ region: 'sjc1' }); // Zeabur 區域代碼
+});
+
 // 強制 HTTPS（生產環境）
-if (isProduction) {
+// 注意：在 Zeabur 上已禁用，因為 Zeabur 會自動處理 HTTPS
+if (false) { // 已禁用：Zeabur 會自動處理 HTTPS 重定向
   app.use((req, res, next) => {
     // 檢查 X-Forwarded-Proto（Zeabur 使用）
     const proto = req.headers['x-forwarded-proto'] || req.protocol;
@@ -74,13 +83,14 @@ app.use(express.json({ limit: '10mb' }));
 // 安全標頭
 app.use((req, res, next) => {
   // Content Security Policy
+  // 注意：img-src 允許所有外部圖片（包括 Google favicon、blob URL 等）以支援圖片快取
   res.setHeader('Content-Security-Policy', 
     "default-src 'self'; " +
     "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com; " + // 允許 Tailwind CDN
     "style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; " + // 允許 Tailwind CDN 樣式
-    "img-src 'self' data: blob: https: http:; " + // 允許 blob URL（用於快取圖片）
+    "img-src 'self' data: blob: https: http: *; " + // 允許所有外部圖片（包括 Google favicon、快取圖片等）
     "font-src 'self' data: https:; " +
-    "connect-src 'self' https:; " +
+    "connect-src 'self' https: http:; " + // 允許外部連接（用於圖片快取）
     "frame-src 'self' https://www.youtube.com https://youtube.com; " + // 允許 YouTube iframe
     "frame-ancestors 'none'; " +
     "base-uri 'self';"
@@ -97,7 +107,15 @@ app.use((req, res, next) => {
 });
 
 // CORS 設定（加強版）
+// 注意：圖片請求（GET）不受 CORS 限制，此設定主要影響 API 請求
 app.use((req, res, next) => {
+  // 圖片請求不需要 CORS 處理，直接通過
+  if (req.path.match(/\.(jpg|jpeg|png|gif|webp|svg|ico)$/i) || 
+      req.path.startsWith('/images/') ||
+      req.path === '/sw.js') {
+    return next(); // 圖片和 Service Worker 不需要 CORS
+  }
+  
   const origin = req.headers.origin;
   
   // 如果設定了允許的來源，只允許這些來源
@@ -130,8 +148,17 @@ app.use((req, res, next) => {
 });
 
 // Rate Limiting 中間件
+// 注意：圖片請求不受 Rate Limiting 限制
 function rateLimit(maxRequests = 10, windowMs = 60000) {
   return (req, res, next) => {
+    // 圖片請求不需要 Rate Limiting
+    if (req.path.match(/\.(jpg|jpeg|png|gif|webp|svg|ico)$/i) || 
+        req.path.startsWith('/images/') ||
+        req.path === '/sw.js' ||
+        req.path === '/favicon.ico') {
+      return next();
+    }
+    
     const key = req.ip || req.connection.remoteAddress;
     const now = Date.now();
     
@@ -484,11 +511,6 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Zeabur 區域檢測端點
-app.get('/_zeabur/region', (req, res) => {
-  res.json({ region: 'zeabur' });
-});
-
 // Favicon 路由（避免 404 錯誤）
 app.get('/favicon.ico', (req, res) => {
   // 返回 204 No Content，避免瀏覽器重複請求
@@ -543,5 +565,25 @@ app.listen(PORT, () => {
   console.log(`📡 API 端點: POST /api/catalog`);
   console.log(`📡 API 端點: GET /api/catalog`);
   console.log(`🏥 健康檢查: GET /health`);
+  console.log(`🌍 Zeabur 區域: GET /_zeabur/region`);
+  
+  // IP 白名單資訊
+  if (IP_WHITELIST.length > 0) {
+    console.log(`\n📋 IP 白名單（管理員 API 訪問限制）:`);
+    IP_WHITELIST.forEach(ip => console.log(`   ✓ ${ip}`));
+    console.log(`\n💡 提示：要添加更多 IP，請設定環境變數 IP_WHITELIST（用逗號分隔）`);
+  } else {
+    console.log(`\n📋 IP 白名單: 未設定（所有 IP 都可以訪問管理員 API）`);
+    console.log(`💡 提示：要限制管理員 API 訪問，請設定環境變數 IP_WHITELIST`);
+    console.log(`   例如：IP_WHITELIST=61.219.19.197,192.168.1.1`);
+  }
+  
+  // 圖片快取相關資訊
+  console.log(`\n🖼️  圖片快取設定:`);
+  console.log(`   ✓ CSP img-src 允許所有外部圖片（包括 Google favicon）`);
+  console.log(`   ✓ CORS 不限制圖片請求`);
+  console.log(`   ✓ Rate Limiting 不限制圖片請求`);
+  console.log(`   ✓ Service Worker 已啟用圖片快取`);
+  
   console.log(`${'='.repeat(60)}\n`);
 });

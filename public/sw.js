@@ -1,6 +1,6 @@
 // Service Worker for Image Caching
 // 版本號，更新時會觸發 Service Worker 更新
-const CACHE_VERSION = 'v4';
+const CACHE_VERSION = 'v5';
 const IMAGE_CACHE_NAME = `aijob-images-${CACHE_VERSION}`;
 
 // 安裝 Service Worker
@@ -56,11 +56,8 @@ self.addEventListener('fetch', (event) => {
     return; // 不處理 Google Play 日誌請求
   }
   
-  // 忽略 Google favicon 服務請求（避免 CORS 錯誤）
-  if ((url.hostname.includes('google.com') && url.pathname.includes('/s2/favicons')) ||
-      url.hostname.includes('gstatic.com')) {
-    return; // 不處理 Google favicon 服務請求
-  }
+  // Google favicon 服務可以使用 no-cors 模式處理，不需要跳過
+  // 這些請求會被下面的圖片處理邏輯處理
   
   // 忽略 Wix 靜態資源請求（避免 CORS 錯誤）
   if (url.hostname.includes('wixstatic.com')) {
@@ -101,14 +98,22 @@ self.addEventListener('fetch', (event) => {
           // 判斷是否為外部 URL
           const isExternal = url.origin !== self.location.origin;
           
-          // 對於同源請求，使用 cors 模式；對於外部請求，嘗試 no-cors
+          // 對於 Google favicon 服務，使用 no-cors 模式
+          const isGoogleFavicon = url.hostname.includes('google.com') && url.pathname.includes('/s2/favicons');
+          
+          // 對於同源請求，使用 cors 模式；對於外部請求（特別是 Google favicon），使用 no-cors
           const fetchOptions = {
             cache: 'no-cache',
-            mode: isExternal ? 'no-cors' : 'cors',
+            mode: (isExternal || isGoogleFavicon) ? 'no-cors' : 'cors',
             credentials: 'omit'
           };
           
-          return fetch(event.request, fetchOptions)
+          // 對於 Google favicon，創建新的 Request 以確保使用 no-cors 模式
+          const requestToFetch = isGoogleFavicon 
+            ? new Request(event.request.url, { mode: 'no-cors', cache: 'no-cache' })
+            : event.request;
+          
+          return fetch(requestToFetch, fetchOptions)
             .then((response) => {
               // 緩存成功的響應
               // no-cors 模式下返回 opaque 響應（status 為 0，但可以緩存）
@@ -121,8 +126,9 @@ self.addEventListener('fetch', (event) => {
               if (canCache) {
                 // 克隆響應，因為響應只能使用一次
                 const responseToCache = response.clone();
-                // 使用原始請求作為 key 來快取
-                cache.put(event.request, responseToCache).then(() => {
+                // 使用原始請求作為 key 來快取（確保能正確匹配）
+                const cacheKey = isGoogleFavicon ? new Request(event.request.url, { mode: 'no-cors' }) : event.request;
+                cache.put(cacheKey, responseToCache).then(() => {
                   console.log('[Service Worker] Cached new image:', event.request.url, `(${response.type})`);
                 }).catch((err) => {
                   console.warn('[Service Worker] Failed to cache image:', event.request.url, err);

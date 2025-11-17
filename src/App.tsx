@@ -1527,7 +1527,7 @@ function preloadAppImages(apps: App[]) {
   // 批量預載入圖片（限制並發數，避免過載）
   const batchSize = 5;
   const preloadBatch = async (urls: string[]) => {
-    const cache = await caches.open('aijob-images-v4');
+    const cache = await caches.open('aijob-images-v5');
     
     for (const url of urls) {
       try {
@@ -1612,8 +1612,8 @@ const IconRenderer: React.FC<{ icon: string; alt: string; category?: string }> =
   const fallbackIcon = getFallbackIcon(alt, category);
   
   // 檢測是否為有 CORS 問題的服務 URL（會導致 CORS 錯誤，直接使用 fallback）
+  // Google favicon 服務可以使用 no-cors 模式，所以不需要跳過
   const hasCorsIssue = typeof icon === "string" && (
-    icon.includes("google.com/s2/favicons") || 
     icon.includes("gstatic.com/favicon") ||
     icon.includes("wixstatic.com") // Wix 靜態資源有 CORS 限制
   );
@@ -1647,7 +1647,7 @@ const IconRenderer: React.FC<{ icon: string; alt: string; category?: string }> =
       
       // 可選：檢查快取是否存在（用於調試）
       if ('caches' in window) {
-        const cacheName = 'aijob-images-v4';
+        const cacheName = 'aijob-images-v5';
         caches.open(cacheName).then((cache) => {
           // 使用 Request 對象來匹配，確保能正確匹配
           const request = new Request(imageUrl);
