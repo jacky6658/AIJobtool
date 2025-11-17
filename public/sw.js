@@ -1,6 +1,6 @@
 // Service Worker for Image Caching
 // 版本號，更新時會觸發 Service Worker 更新
-const CACHE_VERSION = 'v3';
+const CACHE_VERSION = 'v4';
 const IMAGE_CACHE_NAME = `aijob-images-${CACHE_VERSION}`;
 
 // 安裝 Service Worker
@@ -78,82 +78,74 @@ self.addEventListener('fetch', (event) => {
 
   event.respondWith(
     caches.open(IMAGE_CACHE_NAME).then((cache) => {
-      return cache.match(event.request).then((cachedResponse) => {
-        // 如果有緩存，直接返回（優先使用緩存）
-        if (cachedResponse) {
-          console.log('[Service Worker] Serving from cache:', event.request.url);
-          return cachedResponse;
-        }
+      // 嘗試多種方式匹配快取（處理 URL 格式差異）
+      const matchOptions = [
+        event.request, // 原始請求
+        new Request(event.request.url), // 使用 URL 創建新請求
+        new Request(event.request.url, { mode: 'no-cors' }), // no-cors 模式
+        new Request(event.request.url, { mode: 'cors' }) // cors 模式
+      ];
+      
+      // 嘗試匹配快取
+      return Promise.all(matchOptions.map(req => cache.match(req)))
+        .then((responses) => {
+          // 找到第一個有效的快取響應
+          const cachedResponse = responses.find(r => r !== undefined);
+          
+          if (cachedResponse) {
+            console.log('[Service Worker] Serving from cache:', event.request.url);
+            return cachedResponse;
+          }
 
-        // 如果沒有緩存，從網路獲取
-        // 判斷是否為外部 URL
-        const isExternal = url.origin !== self.location.origin;
-        
-        // 對於外部 URL，先嘗試 no-cors 模式
-        const fetchOptions = {
-          cache: 'no-cache',
-          mode: isExternal ? 'no-cors' : 'cors',
-          credentials: 'omit'
-        };
-        
-        return fetch(event.request, fetchOptions)
-          .then((response) => {
-            // 緩存成功的響應
-            // no-cors 模式下返回 opaque 響應（status 為 0，但可以緩存）
-            // cors 模式下返回 basic 或 cors 響應（status 為 200）
-            const canCache = response && (
-              response.type === 'opaque' || // no-cors 模式的響應
-              (response.status === 200 && (response.type === 'basic' || response.type === 'cors')) // cors 模式的響應
-            );
-            
-            if (canCache) {
-              // 克隆響應，因為響應只能使用一次
-              const responseToCache = response.clone();
-              // 異步緩存，不阻塞響應
-              cache.put(event.request, responseToCache).then(() => {
-                console.log('[Service Worker] Cached new image:', event.request.url, `(${response.type})`);
-              }).catch((err) => {
-                console.warn('[Service Worker] Failed to cache image:', event.request.url, err);
-              });
-            }
-            return response;
-          })
-          .catch((error) => {
-            // 靜默處理 CORS 錯誤，不記錄為錯誤
-            const isCorsError = error.message && (
-              error.message.includes('CORS') || 
-              error.message.includes('Failed to fetch') ||
-              error.name === 'TypeError'
-            );
-            
-            if (isCorsError) {
-              // CORS 錯誤時，靜默失敗，不嘗試緩存
-              console.debug('[Service Worker] CORS error, skipping:', event.request.url);
-              // 返回一個空的響應，避免錯誤
-              return new Response('', { 
-                status: 204, 
-                statusText: 'No Content',
-                headers: { 'Content-Type': 'image/png' }
-              });
-            }
-            
-            console.log('[Service Worker] Fetch failed, trying cache:', event.request.url);
-            // 如果網路請求失敗，再次嘗試從緩存獲取
-            return cache.match(event.request).then((cachedResponse) => {
-              if (cachedResponse) {
-                console.log('[Service Worker] Serving from cache after fetch failed:', event.request.url);
-                return cachedResponse;
+          // 如果沒有緩存，從網路獲取
+          // 判斷是否為外部 URL
+          const isExternal = url.origin !== self.location.origin;
+          
+          // 對於同源請求，使用 cors 模式；對於外部請求，嘗試 no-cors
+          const fetchOptions = {
+            cache: 'no-cache',
+            mode: isExternal ? 'no-cors' : 'cors',
+            credentials: 'omit'
+          };
+          
+          return fetch(event.request, fetchOptions)
+            .then((response) => {
+              // 緩存成功的響應
+              // no-cors 模式下返回 opaque 響應（status 為 0，但可以緩存）
+              // cors 模式下返回 basic 或 cors 響應（status 為 200）
+              const canCache = response && (
+                response.type === 'opaque' || // no-cors 模式的響應
+                (response.status === 200 && (response.type === 'basic' || response.type === 'cors')) // cors 模式的響應
+              );
+              
+              if (canCache) {
+                // 克隆響應，因為響應只能使用一次
+                const responseToCache = response.clone();
+                // 使用原始請求作為 key 來快取
+                cache.put(event.request, responseToCache).then(() => {
+                  console.log('[Service Worker] Cached new image:', event.request.url, `(${response.type})`);
+                }).catch((err) => {
+                  console.warn('[Service Worker] Failed to cache image:', event.request.url, err);
+                });
               }
-              // 如果緩存也沒有，返回空響應而不是拋出錯誤
-              console.debug('[Service Worker] No cache available for:', event.request.url);
-              return new Response('', { 
-                status: 204, 
-                statusText: 'No Content',
-                headers: { 'Content-Type': 'image/png' }
-              });
+              return response;
+            })
+            .catch((error) => {
+              // 網路請求失敗，再次嘗試從快取獲取
+              console.log('[Service Worker] Fetch failed, trying cache:', event.request.url);
+              return Promise.all(matchOptions.map(req => cache.match(req)))
+                .then((responses) => {
+                  const cachedResponse = responses.find(r => r !== undefined);
+                  if (cachedResponse) {
+                    console.log('[Service Worker] Serving from cache after fetch failed:', event.request.url);
+                    return cachedResponse;
+                  }
+                  // 如果快取也沒有，讓請求失敗，讓瀏覽器處理（觸發 onError）
+                  console.debug('[Service Worker] No cache available for:', event.request.url);
+                  throw error; // 重新拋出錯誤，讓瀏覽器處理
+                });
             });
-          });
-      });
+        });
     })
   );
 });
