@@ -68,6 +68,8 @@ app.get('/_zeabur/region', (req, res) => {
 // 注意：在 Zeabur 上已禁用，因為 Zeabur 會自動處理 HTTPS
 if (false) { // 已禁用：Zeabur 會自動處理 HTTPS 重定向
   app.use((req, res, next) => {
+    res.json({ region: 'sjc1' });
+});
     // 檢查 X-Forwarded-Proto（Zeabur 使用）
     const proto = req.headers['x-forwarded-proto'] || req.protocol;
     if (proto !== 'https' && req.get('host')) {
