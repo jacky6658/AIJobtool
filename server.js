@@ -112,7 +112,7 @@ app.use((req, res, next) => {
 // 注意：圖片請求（GET）不受 CORS 限制，此設定主要影響 API 請求
 app.use((req, res, next) => {
   // 圖片請求不需要 CORS 處理，直接通過
-  if (req.path.match(/\.(jpg|jpeg|png|gif|webp|svg|ico)$/i) || 
+  if(req.path.match(/\.(jpg|jpeg|png|gif|webp|svg|ico)$/i) || 
       req.path.startsWith('/images/') ||
       req.path === '/sw.js') {
       req.path === '/_zeabur/region') {  // ← 加這一行
