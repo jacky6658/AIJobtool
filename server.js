@@ -68,8 +68,6 @@ app.get('/_zeabur/region', (req, res) => {
 // 注意：在 Zeabur 上已禁用，因為 Zeabur 會自動處理 HTTPS
 if (false) { // 已禁用：Zeabur 會自動處理 HTTPS 重定向
   app.use((req, res, next) => {
-    res.json({ region: 'sjc1' });
-});
     // 檢查 X-Forwarded-Proto（Zeabur 使用）
     const proto = req.headers['x-forwarded-proto'] || req.protocol;
     if (proto !== 'https' && req.get('host')) {
@@ -112,10 +110,10 @@ app.use((req, res, next) => {
 // 注意：圖片請求（GET）不受 CORS 限制，此設定主要影響 API 請求
 app.use((req, res, next) => {
   // 圖片請求不需要 CORS 處理，直接通過
-  if(req.path.match(/\.(jpg|jpeg|png|gif|webp|svg|ico)$/i) || 
+  if (req.path.match(/\.(jpg|jpeg|png|gif|webp|svg|ico)$/i) || 
       req.path.startsWith('/images/') ||
       req.path === '/sw.js' ||
-      req.path === '/_zeabur/region') {  // ← 加這一行
+      req.path === '/_zeabur/region') {
     return next(); // 圖片和 Service Worker 不需要 CORS
   }
   
@@ -159,7 +157,7 @@ function rateLimit(maxRequests = 10, windowMs = 60000) {
         req.path.startsWith('/images/') ||
         req.path === '/sw.js' ||
         req.path === '/favicon.ico' ||
-        req.path === '/_zeabur/region') {  // ← 加這一行  
+        req.path === '/_zeabur/region') {
       return next();
     }
     
