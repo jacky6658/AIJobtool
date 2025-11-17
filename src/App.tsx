@@ -1527,7 +1527,7 @@ function preloadAppImages(apps: App[]) {
   // 批量預載入圖片（限制並發數，避免過載）
   const batchSize = 5;
   const preloadBatch = async (urls: string[]) => {
-    const cache = await caches.open('aijob-images-v3');
+    const cache = await caches.open('aijob-images-v4');
     
     for (const url of urls) {
       try {
@@ -1632,34 +1632,36 @@ const IconRenderer: React.FC<{ icon: string; alt: string; category?: string }> =
     };
   }, []);
   
-  // 嘗試從緩存獲取圖片（優先使用緩存，無論是否離線）
+  // 設置圖片來源（Service Worker 會自動處理快取）
   React.useEffect(() => {
     if (isImage && !hasCorsIssue) {
-      // 優先嘗試從 Service Worker 緩存獲取
+      // 將相對路徑轉換為絕對 URL，以便 Service Worker 正確匹配
+      let imageUrl = icon;
+      if (icon.startsWith('/')) {
+        imageUrl = new URL(icon, window.location.origin).href;
+      }
+      
+      // 直接使用 URL，讓 Service Worker 自動處理快取
+      // Service Worker 會攔截請求並返回快取的內容
+      setImageSrc(imageUrl);
+      
+      // 可選：檢查快取是否存在（用於調試）
       if ('caches' in window) {
-        caches.match(icon).then((cachedResponse) => {
+        const cacheName = 'aijob-images-v4';
+        caches.open(cacheName).then((cache) => {
+          // 使用 Request 對象來匹配，確保能正確匹配
+          const request = new Request(imageUrl);
+          return cache.match(request);
+        }).then((cachedResponse) => {
           if (cachedResponse) {
-            cachedResponse.blob().then((blob) => {
-              const blobUrl = URL.createObjectURL(blob);
-              setImageSrc(blobUrl);
-              setImageError(false);
-              console.log('[IconRenderer] Using cached image:', icon);
-            }).catch(() => {
-              // 如果緩存讀取失敗，使用原始 URL
-              setImageSrc(icon);
-            });
-          } else {
-            // 緩存中沒有，使用原始 URL
-            setImageSrc(icon);
+            console.log('[IconRenderer] Cache found for:', imageUrl);
           }
         }).catch(() => {
-          // 緩存查詢失敗，使用原始 URL
-          setImageSrc(icon);
+          // 靜默失敗
         });
-      } else {
-        // 不支持緩存，直接使用原始 URL
-        setImageSrc(icon);
       }
+    } else if (!isImage) {
+      setImageSrc(icon);
     }
   }, [icon, isImage, hasCorsIssue]);
   
@@ -1692,36 +1694,10 @@ const IconRenderer: React.FC<{ icon: string; alt: string; category?: string }> =
           setImageError(false);
         }}
         onError={() => {
-          // 如果當前是緩存 URL，嘗試原始 URL
-          if (imageSrc !== icon && imageSrc.startsWith('blob:')) {
-            setImageSrc(icon);
-            setImageError(false);
-            return;
-          }
-          // 如果原始 URL 也失敗，嘗試從緩存讀取（如果還沒試過）
-          if (imageSrc === icon && 'caches' in window) {
-            caches.match(icon).then((cachedResponse) => {
-              if (cachedResponse) {
-                cachedResponse.blob().then((blob) => {
-                  const blobUrl = URL.createObjectURL(blob);
-                  setImageSrc(blobUrl);
-                  setImageError(false);
-                }).catch(() => {
-                  setImageError(true);
-                  setImageLoaded(false);
-                });
-              } else {
-                setImageError(true);
-                setImageLoaded(false);
-              }
-            }).catch(() => {
-              setImageError(true);
-              setImageLoaded(false);
-            });
-          } else {
-            setImageError(true);
-            setImageLoaded(false);
-          }
+          // 圖片載入失敗，顯示 fallback
+          console.warn('[IconRenderer] Image load failed:', imageSrc);
+          setImageError(true);
+          setImageLoaded(false);
         }}
       />
       {!imageLoaded && !imageError && (
