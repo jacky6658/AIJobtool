@@ -44,9 +44,15 @@ if (!ADMIN_SECRET || ADMIN_SECRET.trim() === '') {
 const CATALOG_FILE_PATH = process.env.CATALOG_FILE_PATH || path.join(__dirname, 'dist/catalog.json');
 
 // 允許的來源（從環境變數讀取，預設為當前域名）
-const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS 
-  ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
-  : ['https://aitools.aijob.com.tw']; // 新增您的前端網域作為預設值
+const ALLOWED_ORIGINS_ENV = process.env.ALLOWED_ORIGINS;
+const ALLOWED_ORIGINS = ALLOWED_ORIGINS_ENV 
+  ? ALLOWED_ORIGINS_ENV.split(',').map(o => o.trim())
+  : [];
+
+// 確保總是允許您的前端網域
+if (!ALLOWED_ORIGINS.includes('https://aitools.aijob.com.tw')) {
+  ALLOWED_ORIGINS.push('https://aitools.aijob.com.tw');
+}
 
 // IP 白名單（可選，用於限制管理員 API 訪問）
 // 設定方式：在 Zeabur 環境變數中設定 IP_WHITELIST，多個 IP 用逗號分隔
