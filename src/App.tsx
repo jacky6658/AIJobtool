@@ -512,53 +512,43 @@ const AppLauncherDemo: React.FC = () => {
       })();
     }
 
-    // 處理 URL hash 中的分類導航（例如：#category=AI員工）
-    const hash = window.location.hash || "";
-    const categoryMatch = hash.match(/#category=([^&]+)/i);
-    if (categoryMatch) {
-      const category = decodeURIComponent(categoryMatch[1]);
-      // 等待 catalog 載入完成後再設置分類
-      const checkAndSetCategory = () => {
-        if (catalog.categories.includes(category)) {
-          setActiveCategory(category);
-          setCurrentPage("tools");
-        }
-      };
-      // 如果 catalog 已載入，立即設置；否則等待載入完成
-      if (!catalogLoading) {
-        checkAndSetCategory();
-      } else {
-        // 監聽 catalogLoading 變化，載入完成後設置分類
-        const timer = setInterval(() => {
-          if (!catalogLoading) {
-            checkAndSetCategory();
-            clearInterval(timer);
-          }
-        }, 100);
-        // 設置超時，避免無限等待
-        setTimeout(() => clearInterval(timer), 5000);
-      }
-    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 監聽 URL hash 變化（用於處理分享連結）
+  // 處理 URL hash 中的分類導航（在 catalog 載入完成後）
   React.useEffect(() => {
-    const handleHashChange = () => {
+    if (catalogLoading || !catalog.categories.length) {
+      return; // catalog 還在載入中，等待載入完成
+    }
+
+    const handleHashNavigation = () => {
       const hash = window.location.hash || "";
       const categoryMatch = hash.match(/#category=([^&]+)/i);
       if (categoryMatch) {
         const category = decodeURIComponent(categoryMatch[1]);
+        console.log('[Hash Navigation] 檢測到分類 hash:', category);
+        console.log('[Hash Navigation] 可用分類:', catalog.categories);
+        
         if (catalog.categories.includes(category)) {
+          console.log('[Hash Navigation] 導航到分類:', category);
           setActiveCategory(category);
           setCurrentPage("tools");
+        } else {
+          console.warn('[Hash Navigation] 分類不存在:', category, '可用分類:', catalog.categories);
         }
+      } else if (hash === "" || hash === "#") {
+        // 如果 hash 被清除，回到首頁
+        setCurrentPage("home");
       }
     };
 
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
-  }, [catalog.categories]);
+    // 立即檢查一次（處理直接訪問帶 hash 的 URL）
+    handleHashNavigation();
+
+    // 監聽 hash 變化事件（用於處理分享連結和動態切換）
+    window.addEventListener('hashchange', handleHashNavigation);
+    return () => window.removeEventListener('hashchange', handleHashNavigation);
+  }, [catalogLoading, catalog.categories]);
 
 
   /** ====== 只用公開 catalog ====== */
