@@ -238,11 +238,33 @@ const fallbackCatalog: Catalog = {
   ],
 };
 
+// 輔助函數：解析 URL hash，獲取初始分類
+const getInitialCategory = (categories: string[], fallback: string): string => {
+  const hash = window.location.hash || "";
+  const categoryMatch = hash.match(/#category=([^&]+)/i);
+  if (categoryMatch) {
+    const decodedCategory = decodeURIComponent(categoryMatch[1]);
+    if (categories.includes(decodedCategory)) {
+      return decodedCategory;
+    }
+  }
+  return fallback;
+};
+
+// 輔助函數：根據是否有初始分類決定初始頁面
+const getInitialPage = (initialCategory: string, fallbackHome: string): "home" | "tools" => {
+  return initialCategory !== fallbackHome && initialCategory !== "home" ? "tools" : "home";
+};
+
 /** ========= 主元件 ========= */
 const AppLauncherDemo: React.FC = () => {
   const [catalog, setCatalog] = React.useState<Catalog>(fallbackCatalog);
 
-  const [activeCategory, setActiveCategory] = React.useState<string>(fallbackCatalog.categories[0]);
+  // 初始化 activeCategory 和 currentPage（根據 URL hash）
+  const initialCategory = React.useMemo(() => getInitialCategory(fallbackCatalog.categories, fallbackCatalog.categories[0] || "AI員工"), []);
+  const initialPage = React.useMemo(() => getInitialPage(initialCategory, fallbackCatalog.categories[0] || "AI員工"), [initialCategory]);
+
+  const [activeCategory, setActiveCategory] = React.useState<string>(initialCategory);
   const [selectedApp, setSelectedApp] = React.useState<App | null>(null);
   const [favorites, setFavorites] = React.useState<string[]>([]);
   const [keyword, setKeyword] = React.useState<string>("");
@@ -254,7 +276,7 @@ const AppLauncherDemo: React.FC = () => {
   // 頁面狀態：載入動畫、首頁/工具庫切換
   // 暫時禁用載入動畫以排查問題
   const [showLoading, setShowLoading] = React.useState<boolean>(false);
-  const [currentPage, setCurrentPage] = React.useState<"home" | "tools">("home");
+  const [currentPage, setCurrentPage] = React.useState<"home" | "tools">(initialPage);
   const [catalogLoading, setCatalogLoading] = React.useState<boolean>(true);
 
   // 用於存儲 loadCatalog 函數的 ref
@@ -515,40 +537,40 @@ const AppLauncherDemo: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 處理 URL hash 中的分類導航（在 catalog 載入完成後）
+  // 監聽 URL hash 變化（用於處理分享連結和動態切換）
+  // 注意：初次載入時的 hash 已經在 useState 初始化中處理，這裡只處理後續的 hash 變化
   React.useEffect(() => {
+    // 如果 catalog 還在載入中，或者沒有分類，則不處理 hash
     if (catalogLoading || !catalog.categories.length) {
-      return; // catalog 還在載入中，等待載入完成
+      return;
     }
 
-    const handleHashNavigation = () => {
+    const handleHashChange = () => {
       const hash = window.location.hash || "";
       const categoryMatch = hash.match(/#category=([^&]+)/i);
       if (categoryMatch) {
         const category = decodeURIComponent(categoryMatch[1]);
-        console.log('[Hash Navigation] 檢測到分類 hash:', category);
-        console.log('[Hash Navigation] 可用分類:', catalog.categories);
-        
         if (catalog.categories.includes(category)) {
-          console.log('[Hash Navigation] 導航到分類:', category);
           setActiveCategory(category);
           setCurrentPage("tools");
         } else {
-          console.warn('[Hash Navigation] 分類不存在:', category, '可用分類:', catalog.categories);
+          // 如果 hash 中的分類不存在，但已經在工具頁面，則切換到預設分類
+          if (currentPage === "tools") {
+            setActiveCategory(catalog.categories[0] || "AI員工");
+          }
         }
       } else if (hash === "" || hash === "#") {
         // 如果 hash 被清除，回到首頁
         setCurrentPage("home");
+        // 清除 activeCategory
+        setActiveCategory(catalog.categories[0] || "AI員工");
       }
     };
 
-    // 立即檢查一次（處理直接訪問帶 hash 的 URL）
-    handleHashNavigation();
-
-    // 監聽 hash 變化事件（用於處理分享連結和動態切換）
-    window.addEventListener('hashchange', handleHashNavigation);
-    return () => window.removeEventListener('hashchange', handleHashNavigation);
-  }, [catalogLoading, catalog.categories]);
+    // 監聽 hash 變化事件
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, [catalogLoading, catalog.categories, currentPage]);
 
 
   /** ====== 只用公開 catalog ====== */
