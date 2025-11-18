@@ -8,14 +8,16 @@ interface SEOHeadProps {
   title?: string;
   description?: string;
   currentPage?: "home" | "tools";
+  category?: string; // 當前分類，用於設置分享連結的錨點
 }
 
 export const SEOHead: React.FC<SEOHeadProps> = ({ 
   title = "AIJob 自動化學院 - AI 工具庫與自動化教學",
   description = "AIJob 自動化學院專注於 AI 與自動化技術教學，提供 AI 工具庫、n8n 自動化課程、LINE 社群、Discord 社群等資源，從零打造你的工作流效率。",
-  currentPage = "home"
+  currentPage = "home",
+  category
 }) => {
-  const siteUrl = "https://aijobaitools.zeabur.app";
+  const siteUrl = "https://aitools.aijob.com.tw";
   const imageUrl = "https://static.wixstatic.com/media/9705bb_dd62dc9b5ff6496a9a9560ca516f9851~mv2.png";
 
   React.useEffect(() => {
@@ -44,7 +46,12 @@ export const SEOHead: React.FC<SEOHeadProps> = ({
 
     updateOGMeta('og:title', title);
     updateOGMeta('og:description', description);
-    updateOGMeta('og:url', siteUrl + (currentPage === "tools" ? "/tools" : "/"));
+    // 根據當前分類設置分享連結的錨點
+    // 如果有分類且是工具頁面，則指向該分類；否則指向首頁
+    const shareUrl = category && currentPage === "tools" 
+      ? `${siteUrl}/#category=${encodeURIComponent(category)}`
+      : siteUrl;
+    updateOGMeta('og:url', shareUrl);
 
     // 更新 Twitter Card
     const updateTwitterMeta = (property: string, content: string) => {
@@ -145,7 +152,7 @@ export const SEOHead: React.FC<SEOHeadProps> = ({
       document.head.appendChild(script);
     }
     script.textContent = JSON.stringify(currentStructuredData, null, 2);
-  }, [title, description, currentPage, siteUrl, imageUrl]);
+  }, [title, description, currentPage, category, siteUrl, imageUrl]);
 
   return null; // 此組件不渲染任何內容
 };

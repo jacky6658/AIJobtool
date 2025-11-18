@@ -511,8 +511,54 @@ const AppLauncherDemo: React.FC = () => {
         }
       })();
     }
+
+    // 處理 URL hash 中的分類導航（例如：#category=AI員工）
+    const hash = window.location.hash || "";
+    const categoryMatch = hash.match(/#category=([^&]+)/i);
+    if (categoryMatch) {
+      const category = decodeURIComponent(categoryMatch[1]);
+      // 等待 catalog 載入完成後再設置分類
+      const checkAndSetCategory = () => {
+        if (catalog.categories.includes(category)) {
+          setActiveCategory(category);
+          setCurrentPage("tools");
+        }
+      };
+      // 如果 catalog 已載入，立即設置；否則等待載入完成
+      if (!catalogLoading) {
+        checkAndSetCategory();
+      } else {
+        // 監聽 catalogLoading 變化，載入完成後設置分類
+        const timer = setInterval(() => {
+          if (!catalogLoading) {
+            checkAndSetCategory();
+            clearInterval(timer);
+          }
+        }, 100);
+        // 設置超時，避免無限等待
+        setTimeout(() => clearInterval(timer), 5000);
+      }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // 監聽 URL hash 變化（用於處理分享連結）
+  React.useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash || "";
+      const categoryMatch = hash.match(/#category=([^&]+)/i);
+      if (categoryMatch) {
+        const category = decodeURIComponent(categoryMatch[1]);
+        if (catalog.categories.includes(category)) {
+          setActiveCategory(category);
+          setCurrentPage("tools");
+        }
+      }
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, [catalog.categories]);
 
 
   /** ====== 只用公開 catalog ====== */
@@ -738,6 +784,7 @@ const AppLauncherDemo: React.FC = () => {
         title={seoTitle}
         description={seoDescription}
         currentPage={currentPage}
+        category={currentPage === "tools" ? activeCategory : undefined}
       />
       <div className={isDark ? "min-h-screen bg-slate-950 text-slate-100 relative overflow-hidden"
                              : "min-h-screen bg-slate-50 text-slate-900 relative overflow-hidden"}>

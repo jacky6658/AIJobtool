@@ -1,5 +1,5 @@
 # robots.txt for AIJob AI工具庫
-# https://aijobaitools.zeabur.app
+# https://aitools.aijob.com.tw
 
 User-agent: *
 Allow: /
@@ -9,7 +9,7 @@ Disallow: /admin
 Disallow: /api/
 
 # Sitemap 位置
-Sitemap: https://aijobaitools.zeabur.app/sitemap.xml
+Sitemap: https://aitools.aijob.com.tw/sitemap.xml
 
 # 爬取延遲（可選）
 # Crawl-delay: 1
