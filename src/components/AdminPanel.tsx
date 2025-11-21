@@ -1173,97 +1173,104 @@ const AppEditorModal: React.FC<{
     }
   };
 
-  // URL 變更時自動抓取 Logo
+  // URL 變更時自動抓取 Logo、偵測標籤和生成簡介
   React.useEffect(() => {
+    console.log('[useEffect] href 變更觸發:', href);
+
     if (!href || !href.trim()) {
       setIcon("🧩");
       setPreview(null);
       autoFilledUrlRef.current = "";
+      console.log('[useEffect] URL 為空，清空狀態');
       return;
     }
 
-    const cached = getCachedLogo(href);
-    if (cached) {
-      setIcon(cached);
-      setPreview(cached);
-      if (!name.trim()) {
-        try {
-          const urlObj = new URL(href.startsWith("http") ? href : `https://${href}`);
-          const domainName = urlObj.hostname.replace("www.", "").split(".")[0];
-          setName(domainName.charAt(0).toUpperCase() + domainName.slice(1));
-        } catch {}
-      }
+    // 如果當前 URL 已經被處理過，則跳過，避免重複自動填充
+    if (autoFilledUrlRef.current === href) {
+      console.log('[useEffect] URL 已處理過，跳過自動填充:', href);
       return;
     }
+
+    // 開始處理新的 URL
+    console.log('[useEffect] 開始處理新 URL:', href);
+    setIsFetchingLogo(true);
 
     const timer = setTimeout(async () => {
-      setIsFetchingLogo(true);
       try {
-        const logoUrl = await fetchLogoFromUrl(href, false);
-        if (logoUrl) {
-          setIcon(logoUrl);
-          setPreview(logoUrl);
-          if (!name.trim()) {
-            try {
-              const urlObj = new URL(href.startsWith("http") ? href : `https://${href}`);
-              const domainName = urlObj.hostname.replace("www.", "").split(".")[0];
-              setName(domainName.charAt(0).toUpperCase() + domainName.slice(1));
-            } catch {}
+        // --- 1. 抓取 Logo 和設定名稱 ---
+        let fetchedLogoUrl: string | null = null;
+        const cached = getCachedLogo(href);
+        if (cached) {
+          fetchedLogoUrl = cached;
+          setIcon(cached);
+          setPreview(cached);
+          console.log('[useEffect] 從快取載入 Logo:', cached);
+        } else {
+          fetchedLogoUrl = await fetchLogoFromUrl(href, false);
+          if (fetchedLogoUrl) {
+            setIcon(fetchedLogoUrl);
+            setPreview(fetchedLogoUrl);
+            console.log('[useEffect] 成功抓取 Logo:', fetchedLogoUrl);
+          } else {
+            setIcon("🧩");
+            setPreview(null);
+            console.log('[useEffect] 無法抓取 Logo，使用預設圖示');
           }
         }
+        
+        if (!name.trim()) {
+          try {
+            const urlObj = new URL(href.startsWith("http") ? href : `https://${href}`);
+            const domainName = urlObj.hostname.replace("www.", "").split(".")[0];
+            setName(domainName.charAt(0).toUpperCase() + domainName.slice(1));
+            console.log('[useEffect] 已從 URL 設置名稱:', domainName);
+          } catch {}
+        }
+
+        // --- 2. 自動偵測標籤 (僅當 tags 為空時) ---
+        setTags(currentTags => {
+          if (!currentTags || !currentTags.trim()) {
+            const detectedTags = detectTagsFromUrl(href, catalog.apps);
+            if (detectedTags.length > 0) {
+              console.log('[useEffect] 已自動偵測標籤:', detectedTags);
+              return detectedTags.join(", ");
+            }
+            console.log('[useEffect] 未偵測到自動標籤');
+          } else {
+            console.log('[useEffect] 標籤欄位不為空，跳過自動偵測');
+          }
+          return currentTags;
+        });
+
+        // --- 3. 自動生成簡介 (僅當 description 為空時) ---
+        const currentName = name || "";
+        const generatedDesc = await generateDescriptionFromUrl(href, currentName, catalog.apps);
+        if (generatedDesc) {
+          setDescription(currentDesc => {
+            if (!currentDesc || !currentDesc.trim()) {
+              console.log('[useEffect] 已自動生成簡介:', generatedDesc);
+              return generatedDesc;
+            }
+            console.log('[useEffect] 簡介欄位不為空，跳過自動生成');
+            return currentDesc;
+          });
+        } else {
+          console.log('[useEffect] 未生成自動簡介');
+        }
+
+        // --- 4. 標記為已處理（在所有自動填充完成後）---
+        autoFilledUrlRef.current = href;
+        console.log('[useEffect] 已標記 URL 為已處理:', href);
+
       } catch (error) {
-        console.error("自動抓取 Logo 失敗:", error);
+        console.error("自動抓取資訊或生成簡介/標籤失敗:", error);
       } finally {
         setIsFetchingLogo(false);
+        console.log('[useEffect] 自動填充流程結束');
       }
-    }, 1000);
+    }, 500); // 稍微延遲以避免輸入過快導致的頻繁觸發
 
     return () => clearTimeout(timer);
-  }, [href, name]);
-
-  // 單獨的 useEffect 來處理自動偵測標籤和生成簡介
-  React.useEffect(() => {
-    if (!href || !href.trim()) {
-      autoFilledUrlRef.current = "";
-      return;
-    }
-
-    // 如果這個 URL 已經處理過，就不重複處理
-    if (autoFilledUrlRef.current === href) {
-      return;
-    }
-
-    // 使用函數式更新來獲取最新的狀態值
-    setTags(currentTags => {
-      if (!currentTags || !currentTags.trim()) {
-        const detectedTags = detectTagsFromUrl(href, catalog.apps);
-        if (detectedTags.length > 0) {
-          console.log('[自動偵測] 偵測到標籤:', detectedTags);
-          return detectedTags.join(", ");
-        }
-      }
-      return currentTags;
-    });
-
-    // 生成簡介（異步操作）
-    const currentName = name || "";
-    generateDescriptionFromUrl(href, currentName, catalog.apps).then(generatedDesc => {
-      if (generatedDesc) {
-        // 使用函數式更新來檢查當前狀態
-        setDescription(currentDesc => {
-          if (!currentDesc || !currentDesc.trim()) {
-            console.log('[自動生成] 生成簡介:', generatedDesc);
-            return generatedDesc;
-          }
-          return currentDesc;
-        });
-      }
-    }).catch(error => {
-      console.error('[自動生成] 生成簡介失敗:', error);
-    });
-
-    // 標記這個 URL 已經處理過
-    autoFilledUrlRef.current = href;
   }, [href, catalog.apps, name]);
 
   const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
