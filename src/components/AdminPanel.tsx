@@ -410,6 +410,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           <AppEditorModal
             app={editingApp}
             categories={catalog.categories}
+            catalog={catalog}
             isDark={isDark}
             onClose={() => setEditingApp(null)}
             onSave={handleSaveApp}
@@ -922,10 +923,11 @@ const CategoriesManagement: React.FC<{
 const AppEditorModal: React.FC<{
   app: App;
   categories: Category[];
+  catalog: Catalog;
   isDark: boolean;
   onClose: () => void;
   onSave: (app: App) => void;
-}> = ({ app, categories, isDark, onClose, onSave }) => {
+}> = ({ app, categories, catalog, isDark, onClose, onSave }) => {
   const [name, setName] = React.useState(app.name);
   const [href, setHref] = React.useState(app.href);
   const [icon, setIcon] = React.useState(app.icon);
@@ -937,6 +939,154 @@ const AppEditorModal: React.FC<{
   const [uploadedImages, setUploadedImages] = React.useState<string[]>([]);
 
   const canSave = name.trim() && href.trim();
+
+  /** ====== 自動標籤偵測功能 ====== */
+  const detectTagsFromUrl = (url: string, existingApps: App[]): string[] => {
+    if (!url || !url.trim()) return [];
+    
+    try {
+      const urlObj = new URL(url.startsWith("http") ? url : `https://${url}`);
+      const hostname = urlObj.hostname.toLowerCase();
+      const pathname = urlObj.pathname.toLowerCase();
+      const fullUrl = (hostname + pathname).toLowerCase();
+      
+      const detectedTags: string[] = [];
+      
+      // 關鍵字匹配規則
+      const keywordRules: { keywords: string[]; tags: string[] }[] = [
+        { keywords: ['ai', 'chatgpt', 'gpt', 'claude', 'gemini', 'llm', 'openai'], tags: ['AI助手'] },
+        { keywords: ['video', '短影音', 'youtube', 'tiktok'], tags: ['短影音'] },
+        { keywords: ['hr', 'recruit', '招聘', '面試', 'interview'], tags: ['HR', '面試題目'] },
+        { keywords: ['translate', '翻譯', 'language', '多語言'], tags: ['多語言'] },
+        { keywords: ['productivity', '生產力', '效率', 'tool'], tags: ['生產力'] },
+        { keywords: ['ide', 'code', 'editor', '開發', '程式'], tags: ['線上IDE'] },
+        { keywords: ['image', 'photo', 'picture', '圖片', '影像'], tags: ['圖片處理'] },
+        { keywords: ['multimodal', '多模態', 'vision'], tags: ['多模態'] },
+      ];
+      
+      // 根據關鍵字規則匹配
+      keywordRules.forEach(rule => {
+        const matches = rule.keywords.some(keyword => 
+          fullUrl.includes(keyword) || hostname.includes(keyword) || pathname.includes(keyword)
+        );
+        if (matches) {
+          rule.tags.forEach(tag => {
+            if (!detectedTags.includes(tag)) {
+              detectedTags.push(tag);
+            }
+          });
+        }
+      });
+      
+      // 如果找到相似網域的應用程式，建議使用其標籤
+      const similarDomain = existingApps.find(app => {
+        try {
+          const appUrl = new URL(app.href.startsWith("http") ? app.href : `https://${app.href}`);
+          const appHostname = appUrl.hostname.toLowerCase();
+          return hostname === appHostname || 
+                 hostname.endsWith('.' + appHostname) || 
+                 appHostname.endsWith('.' + hostname);
+        } catch {
+          return false;
+        }
+      });
+      
+      if (similarDomain && similarDomain.tags) {
+        similarDomain.tags.forEach(tag => {
+          if (!detectedTags.includes(tag)) {
+            detectedTags.push(tag);
+          }
+        });
+      }
+      
+      return detectedTags;
+    } catch {
+      return [];
+    }
+  };
+
+  /** ====== 自動生成中文簡介功能（不超過30字，語意通順） ====== */
+  const generateDescriptionFromUrl = async (url: string, appName: string, existingApps: App[]): Promise<string> => {
+    if (!url || !url.trim()) return "";
+    
+    try {
+      const urlObj = new URL(url.startsWith("http") ? url : `https://${url}`);
+      const hostname = urlObj.hostname.toLowerCase();
+      const pathname = urlObj.pathname.toLowerCase();
+      const domainName = hostname.replace("www.", "").split(".")[0];
+      
+      // 關鍵字到簡介模板的映射
+      const descriptionTemplates: { keywords: string[]; template: string }[] = [
+        { keywords: ['ai', 'chatgpt', 'gpt', 'claude', 'gemini', 'llm', 'openai'], template: 'AI助手工具，提供智能對話與內容生成功能' },
+        { keywords: ['video', '短影音', 'youtube', 'tiktok'], template: '短影音製作與編輯工具，輕鬆創作精彩內容' },
+        { keywords: ['hr', 'recruit', '招聘', '面試', 'interview'], template: 'HR招聘工具，協助面試與人才管理' },
+        { keywords: ['translate', '翻譯', 'language', '多語言'], template: '多語言翻譯工具，支援多種語言互譯' },
+        { keywords: ['productivity', '生產力', '效率', 'tool'], template: '生產力工具，提升工作效率與協作能力' },
+        { keywords: ['ide', 'code', 'editor', '開發', '程式'], template: '線上程式開發工具，支援多種程式語言' },
+        { keywords: ['image', 'photo', 'picture', '圖片', '影像'], template: '圖片處理工具，提供編輯與優化功能' },
+        { keywords: ['multimodal', '多模態', 'vision'], template: '多模態AI工具，整合文字、圖片與語音處理' },
+        { keywords: ['design', '設計', 'ui', 'ux'], template: '設計工具，協助創作美觀的視覺作品' },
+        { keywords: ['write', '寫作', 'content', '內容'], template: '內容創作工具，協助撰寫與編輯文章' },
+      ];
+      
+      // 根據關鍵字匹配模板
+      const fullUrl = (hostname + pathname).toLowerCase();
+      let matchedTemplate = "";
+      
+      for (const rule of descriptionTemplates) {
+        if (rule.keywords.some(keyword => 
+          fullUrl.includes(keyword) || hostname.includes(keyword) || pathname.includes(keyword)
+        )) {
+          matchedTemplate = rule.template;
+          break;
+        }
+      }
+      
+      // 如果沒有匹配到模板，根據網域名稱生成通用簡介
+      if (!matchedTemplate) {
+        const domainDisplayName = domainName.charAt(0).toUpperCase() + domainName.slice(1);
+        matchedTemplate = `${domainDisplayName}提供的實用工具，協助提升工作效率`;
+      }
+      
+      // 智能截斷至30字以內，確保語意通順
+      const truncateDescription = (text: string, maxLength: number = 30): string => {
+        if (text.length <= maxLength) return text;
+        
+        // 優先在標點符號處截斷
+        const truncated = text.slice(0, maxLength);
+        const punctuationMarks = ['。', '，', '、', '；', '：', '！', '？', '.', ',', ';', ':', '!', '?'];
+        
+        // 從後往前找最近的標點符號
+        let bestCutPoint = -1;
+        for (let i = truncated.length - 1; i >= Math.floor(maxLength * 0.6); i--) {
+          if (punctuationMarks.includes(truncated[i])) {
+            bestCutPoint = i + 1;
+            break;
+          }
+        }
+        
+        // 如果找到標點符號，在標點後截斷
+        if (bestCutPoint > 0) {
+          return truncated.slice(0, bestCutPoint).trim();
+        }
+        
+        // 如果沒找到標點符號，嘗試在空格處截斷
+        const lastSpace = truncated.lastIndexOf(' ');
+        if (lastSpace > Math.floor(maxLength * 0.7)) {
+          return truncated.slice(0, lastSpace).trim();
+        }
+        
+        // 如果都不行，直接截斷但加上省略號
+        return truncated.trim() + '...';
+      };
+      
+      return truncateDescription(matchedTemplate, 30);
+      
+    } catch {
+      // 如果解析失敗，返回基於應用程式名稱的簡單描述
+      return appName ? `${appName}提供的實用工具` : "實用的線上工具";
+    }
+  };
 
   // Logo 快取功能（與主應用相同）
   const getCachedLogo = (url: string): string | null => {
@@ -1020,7 +1170,7 @@ const AppEditorModal: React.FC<{
     }
   };
 
-  // URL 變更時自動抓取 Logo
+  // URL 變更時自動抓取 Logo、偵測標籤和生成簡介
   React.useEffect(() => {
     if (!href || !href.trim()) {
       setIcon("🧩");
@@ -1038,6 +1188,21 @@ const AppEditorModal: React.FC<{
           const domainName = urlObj.hostname.replace("www.", "").split(".")[0];
           setName(domainName.charAt(0).toUpperCase() + domainName.slice(1));
         } catch {}
+      }
+      // 自動偵測標籤（如果標籤欄位為空）
+      if (!tags.trim()) {
+        const detectedTags = detectTagsFromUrl(href, catalog.apps);
+        if (detectedTags.length > 0) {
+          setTags(detectedTags.join(", "));
+        }
+      }
+      // 自動生成簡介（如果簡介欄位為空）
+      if (!description.trim()) {
+        generateDescriptionFromUrl(href, name || "", catalog.apps).then(desc => {
+          if (desc) {
+            setDescription(desc);
+          }
+        });
       }
       return;
     }
@@ -1057,8 +1222,22 @@ const AppEditorModal: React.FC<{
             } catch {}
           }
         }
+        // 自動偵測標籤（如果標籤欄位為空）
+        if (!tags.trim()) {
+          const detectedTags = detectTagsFromUrl(href, catalog.apps);
+          if (detectedTags.length > 0) {
+            setTags(detectedTags.join(", "));
+          }
+        }
+        // 自動生成簡介（如果簡介欄位為空）
+        if (!description.trim()) {
+          const generatedDesc = await generateDescriptionFromUrl(href, name || "", catalog.apps);
+          if (generatedDesc) {
+            setDescription(generatedDesc);
+          }
+        }
       } catch (error) {
-        console.error("自動抓取 Logo 失敗:", error);
+        console.error("自動抓取資訊失敗:", error);
       } finally {
         setIsFetchingLogo(false);
       }
