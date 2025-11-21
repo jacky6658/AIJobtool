@@ -937,6 +937,9 @@ const AppEditorModal: React.FC<{
   const [preview, setPreview] = React.useState<string | null>(null);
   const [isFetchingLogo, setIsFetchingLogo] = React.useState(false);
   const [uploadedImages, setUploadedImages] = React.useState<string[]>([]);
+  
+  // 使用 ref 來追蹤已經自動填充過的 URL
+  const autoFilledUrlRef = React.useRef<string>("");
 
   const canSave = name.trim() && href.trim();
 
@@ -954,8 +957,8 @@ const AppEditorModal: React.FC<{
       
       // 關鍵字匹配規則
       const keywordRules: { keywords: string[]; tags: string[] }[] = [
-        { keywords: ['ai', 'chatgpt', 'gpt', 'claude', 'gemini', 'llm', 'openai'], tags: ['AI助手'] },
-        { keywords: ['video', '短影音', 'youtube', 'tiktok'], tags: ['短影音'] },
+        { keywords: ['ai', 'chatgpt', 'gpt', 'claude', 'gemini', 'llm', 'openai', 'aistudio'], tags: ['AI助手'] },
+        { keywords: ['video', '短影音', 'youtube', 'tiktok', 'veo'], tags: ['短影音'] },
         { keywords: ['hr', 'recruit', '招聘', '面試', 'interview'], tags: ['HR', '面試題目'] },
         { keywords: ['translate', '翻譯', 'language', '多語言'], tags: ['多語言'] },
         { keywords: ['productivity', '生產力', '效率', 'tool'], tags: ['生產力'] },
@@ -1017,8 +1020,8 @@ const AppEditorModal: React.FC<{
       
       // 關鍵字到簡介模板的映射
       const descriptionTemplates: { keywords: string[]; template: string }[] = [
-        { keywords: ['ai', 'chatgpt', 'gpt', 'claude', 'gemini', 'llm', 'openai'], template: 'AI助手工具，提供智能對話與內容生成功能' },
-        { keywords: ['video', '短影音', 'youtube', 'tiktok'], template: '短影音製作與編輯工具，輕鬆創作精彩內容' },
+        { keywords: ['ai', 'chatgpt', 'gpt', 'claude', 'gemini', 'llm', 'openai', 'aistudio'], template: 'AI助手工具，提供智能對話與內容生成功能' },
+        { keywords: ['video', '短影音', 'youtube', 'tiktok', 'veo'], template: '短影音製作與編輯工具，輕鬆創作精彩內容' },
         { keywords: ['hr', 'recruit', '招聘', '面試', 'interview'], template: 'HR招聘工具，協助面試與人才管理' },
         { keywords: ['translate', '翻譯', 'language', '多語言'], template: '多語言翻譯工具，支援多種語言互譯' },
         { keywords: ['productivity', '生產力', '效率', 'tool'], template: '生產力工具，提升工作效率與協作能力' },
@@ -1170,11 +1173,12 @@ const AppEditorModal: React.FC<{
     }
   };
 
-  // URL 變更時自動抓取 Logo、偵測標籤和生成簡介
+  // URL 變更時自動抓取 Logo
   React.useEffect(() => {
     if (!href || !href.trim()) {
       setIcon("🧩");
       setPreview(null);
+      autoFilledUrlRef.current = "";
       return;
     }
 
@@ -1188,21 +1192,6 @@ const AppEditorModal: React.FC<{
           const domainName = urlObj.hostname.replace("www.", "").split(".")[0];
           setName(domainName.charAt(0).toUpperCase() + domainName.slice(1));
         } catch {}
-      }
-      // 自動偵測標籤（如果標籤欄位為空）
-      if (!tags.trim()) {
-        const detectedTags = detectTagsFromUrl(href, catalog.apps);
-        if (detectedTags.length > 0) {
-          setTags(detectedTags.join(", "));
-        }
-      }
-      // 自動生成簡介（如果簡介欄位為空）
-      if (!description.trim()) {
-        generateDescriptionFromUrl(href, name || "", catalog.apps).then(desc => {
-          if (desc) {
-            setDescription(desc);
-          }
-        });
       }
       return;
     }
@@ -1222,29 +1211,60 @@ const AppEditorModal: React.FC<{
             } catch {}
           }
         }
-        // 自動偵測標籤（如果標籤欄位為空）
-        if (!tags.trim()) {
-          const detectedTags = detectTagsFromUrl(href, catalog.apps);
-          if (detectedTags.length > 0) {
-            setTags(detectedTags.join(", "));
-          }
-        }
-        // 自動生成簡介（如果簡介欄位為空）
-        if (!description.trim()) {
-          const generatedDesc = await generateDescriptionFromUrl(href, name || "", catalog.apps);
-          if (generatedDesc) {
-            setDescription(generatedDesc);
-          }
-        }
       } catch (error) {
-        console.error("自動抓取資訊失敗:", error);
+        console.error("自動抓取 Logo 失敗:", error);
       } finally {
         setIsFetchingLogo(false);
       }
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, [href]);
+  }, [href, name]);
+
+  // 單獨的 useEffect 來處理自動偵測標籤和生成簡介
+  React.useEffect(() => {
+    if (!href || !href.trim()) {
+      autoFilledUrlRef.current = "";
+      return;
+    }
+
+    // 如果這個 URL 已經處理過，就不重複處理
+    if (autoFilledUrlRef.current === href) {
+      return;
+    }
+
+    // 使用函數式更新來獲取最新的狀態值
+    setTags(currentTags => {
+      if (!currentTags || !currentTags.trim()) {
+        const detectedTags = detectTagsFromUrl(href, catalog.apps);
+        if (detectedTags.length > 0) {
+          console.log('[自動偵測] 偵測到標籤:', detectedTags);
+          return detectedTags.join(", ");
+        }
+      }
+      return currentTags;
+    });
+
+    // 生成簡介（異步操作）
+    const currentName = name || "";
+    generateDescriptionFromUrl(href, currentName, catalog.apps).then(generatedDesc => {
+      if (generatedDesc) {
+        // 使用函數式更新來檢查當前狀態
+        setDescription(currentDesc => {
+          if (!currentDesc || !currentDesc.trim()) {
+            console.log('[自動生成] 生成簡介:', generatedDesc);
+            return generatedDesc;
+          }
+          return currentDesc;
+        });
+      }
+    }).catch(error => {
+      console.error('[自動生成] 生成簡介失敗:', error);
+    });
+
+    // 標記這個 URL 已經處理過
+    autoFilledUrlRef.current = href;
+  }, [href, catalog.apps, name]);
 
   const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
