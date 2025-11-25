@@ -173,6 +173,12 @@ VITE_CATALOG_API_ENDPOINT=/api/catalog
 # 是否顯示管理員登入按鈕
 VITE_SHOW_ADMIN_LOGIN=true
 
+# Google Analytics（GA4）
+VITE_GA_MEASUREMENT_ID=G-XXXXXXXXXX
+
+# Google Search Console 驗證碼
+VITE_GOOGLE_SITE_VERIFICATION=your_verification_code
+
 # 允許的來源（CORS）
 ALLOWED_ORIGINS=
 
