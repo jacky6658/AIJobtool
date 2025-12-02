@@ -22,8 +22,8 @@ interface SEOHeadProps {
 }
 
 export const SEOHead: React.FC<SEOHeadProps> = ({ 
-  title = "AIJob 自動化學院 - AI 工具庫與自動化教學",
-  description = "AIJob 自動化學院專注於 AI 與自動化技術教學，提供 AI 工具庫、n8n 自動化課程、LINE 社群、Discord 社群等資源，從零打造你的工作流效率。",
+  title = "AIJob AI工具庫 - GPT、ChatGPT、Gemini、Manus、Cursor 等熱門 AI 工具推薦",
+  description = "AIJob AI工具庫收錄 GPT、ChatGPT、Gemini、Manus、Cursor 等熱門 AI 工具，提供 AI 工具推薦、使用教學、免費 AI 工具庫，涵蓋 AI 對話、AI 寫程式、AI 自動化等多個分類，幫助你快速找到最適合的 AI 工具。",
   currentPage = "home",
   category,
   tools = []
@@ -50,6 +50,20 @@ export const SEOHead: React.FC<SEOHeadProps> = ({
       document.head.appendChild(metaDescription);
     }
     metaDescription.setAttribute('content', description);
+
+    // 動態更新 meta keywords
+    const defaultKeywords = "AI工具,自動化,AI教學,n8n,LINE自動化,AI員工,AI對話,AIJob,自動化學院,GPT,ChatGPT,Gemini,Manus,Cursor,StackBlitz,Codesandbox,OpenAI,Google AI,AI程式編輯器,AI工具推薦,免費AI工具,AI工具庫";
+    let metaKeywords = document.querySelector('meta[name="keywords"]');
+    if (!metaKeywords) {
+      metaKeywords = document.createElement('meta');
+      metaKeywords.setAttribute('name', 'keywords');
+      document.head.appendChild(metaKeywords);
+    }
+    // 根據當前分類添加相關關鍵字
+    const categoryKeywords = category 
+      ? `${defaultKeywords},${category}`
+      : defaultKeywords;
+    metaKeywords.setAttribute('content', categoryKeywords);
 
     // 更新 Open Graph
     const updateOGMeta = (property: string, content: string) => {

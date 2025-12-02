@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { isValidUrl } from "../utils/security";
+import { DEFAULT_FAQ_QUESTIONS } from "../utils/schemaGenerator";
 
 /**
  * 首頁組件
@@ -15,6 +16,8 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigateToCategory, onOpen
   const [titleVisible, setTitleVisible] = useState(false);
   const [contentVisible, setContentVisible] = useState(false);
   const [videoVisible, setVideoVisible] = useState(false);
+  const [faqVisible, setFaqVisible] = useState(false);
+  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
   const [isMobile, setIsMobile] = useState(false);
 
   // 檢測是否為手機版
@@ -32,7 +35,13 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigateToCategory, onOpen
     setTimeout(() => setTitleVisible(true), 100);
     setTimeout(() => setContentVisible(true), 300);
     setTimeout(() => setVideoVisible(true), 500);
+    setTimeout(() => setFaqVisible(true), 700);
   }, []);
+
+  // 切換 FAQ 展開/收起
+  const toggleFaq = (index: number) => {
+    setOpenFaqIndex(openFaqIndex === index ? null : index);
+  };
   // 安全驗證所有外部連結
   const links = {
     youtube: "https://youtu.be/Wqulhvlj5gk?si=XWPnNGuOqpQiEhZb",
@@ -149,6 +158,63 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigateToCategory, onOpen
           </div>
         </div>
       )}
+
+      {/* FAQ 常見問題區塊 */}
+      <div className={`mb-12 transition-all duration-1000 delay-400 ${
+        faqVisible 
+          ? 'opacity-100 translate-y-0' 
+          : 'opacity-0 translate-y-8'
+      }`}>
+        <h2 className="text-2xl md:text-3xl font-bold mb-8 text-center text-slate-900">
+          常見問題
+        </h2>
+        <div className="max-w-4xl mx-auto space-y-4">
+          {DEFAULT_FAQ_QUESTIONS.map((faq, index) => (
+            <div
+              key={index}
+              className="bg-white rounded-lg shadow-md border border-slate-200 overflow-hidden transition-all duration-300 hover:shadow-lg"
+            >
+              <button
+                onClick={() => toggleFaq(index)}
+                className="w-full px-6 py-4 text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset hover:bg-slate-50 transition-colors"
+                aria-expanded={openFaqIndex === index}
+                aria-controls={`faq-answer-${index}`}
+              >
+                <span className="text-lg font-semibold text-slate-900 pr-4">
+                  {faq.question}
+                </span>
+                <svg
+                  className={`w-5 h-5 text-blue-600 flex-shrink-0 transition-transform duration-300 ${
+                    openFaqIndex === index ? 'transform rotate-180' : ''
+                  }`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
+                </svg>
+              </button>
+              <div
+                id={`faq-answer-${index}`}
+                className={`overflow-hidden transition-all duration-300 ${
+                  openFaqIndex === index ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+                }`}
+              >
+                <div className="px-6 pb-4 pt-2">
+                  <p className="text-slate-600 leading-relaxed whitespace-pre-line">
+                    {faq.answer}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
 
       {/* 動態背景裝飾 */}
       <div className="fixed inset-0 pointer-events-none -z-10 overflow-hidden">
