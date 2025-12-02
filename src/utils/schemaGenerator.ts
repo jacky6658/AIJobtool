@@ -45,6 +45,7 @@ export class SchemaGenerator {
       "description": description || "免費 AI 工具集合平台與社群論壇，提供 AI 工具推薦、使用教學、社群討論、專家解答等服務。",
       "inLanguage": "zh-Hant",
       "isAccessibleForFree": true,
+      "keywords": "AI工具,自動化,AI教學,n8n,LINE自動化,AI員工,AI對話,AIJob,自動化學院,GPT,ChatGPT,Gemini,Manus,Cursor,StackBlitz,Codesandbox,OpenAI,Google AI,AI程式編輯器,AI工具推薦,免費AI工具,AI工具庫",
       "audience": {
         "@type": "Audience",
         "audienceType": "AI工具使用者、開發者、設計師、行銷人員"
@@ -92,7 +93,12 @@ export class SchemaGenerator {
       "name": this.config.organizationName,
       "alternateName": this.config.organizationName,
       "url": this.config.siteUrl,
-      "logo": this.config.organizationLogo,
+      "logo": {
+        "@type": "ImageObject",
+        "url": this.config.organizationLogo,
+        "width": 512,
+        "height": 512
+      },
       "description": description || "AI 工具推薦平台與自動化教學社群，提供 AI 工具庫、n8n 自動化課程、社群討論、專家解答等服務。",
       "audience": {
         "@type": "EducationalAudience",
@@ -114,7 +120,8 @@ export class SchemaGenerator {
         "addressCountry": "TW",
         "addressRegion": "台北市",
         "addressLocality": "內湖區",
-        "streetAddress": "康寧路三段之7號3樓"
+        "streetAddress": "康寧路三段之7號3樓",
+        "postalCode": "114" // 內湖區郵遞區號（可選，但建議填寫以消除警告）
       },
       "contactPoint": {
         "@type": "ContactPoint",
@@ -486,7 +493,7 @@ export const DEFAULT_FAQ_QUESTIONS = [
   },
   {
     question: "AIJob AI工具庫有哪些分類？",
-    answer: "AIJob AI工具庫包含以下分類：AI員工（如 AI短影音智能體、AI人資招募智能體）、AI對話（如 GPT、Gemini、Manus）、AI寫程式工具（如 StackBlitz、Codesandbox）、部署平台、AI自動化、AI分身、AI文書等。每個分類都有精心挑選的實用工具。"
+    answer: "AIJob AI工具庫包含以下分類：AI員工（如 ReelMind AI短影音智能體、AI人資招募智能體）、AI對話（如 GPT、ChatGPT、Gemini、Manus）、AI寫程式工具（如 Cursor、StackBlitz、Codesandbox）、部署平台、AI自動化、AI分身、AI文書等。每個分類都有精心挑選的實用工具，包括熱門的 GPT、ChatGPT、Gemini、Manus、Cursor 等。"
   },
   {
     question: "使用 AIJob AI工具庫需要付費嗎？",
