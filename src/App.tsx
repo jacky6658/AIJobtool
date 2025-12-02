@@ -797,6 +797,14 @@ const AppLauncherDemo: React.FC = () => {
         description={seoDescription}
         currentPage={currentPage}
         category={currentPage === "tools" ? activeCategory : undefined}
+        tools={apps.map(app => ({
+          name: app.name,
+          description: app.description,
+          category: app.category,
+          tags: app.tags,
+          url: app.href,
+          logo: app.icon.startsWith('http') || app.icon.startsWith('data:') ? app.icon : undefined
+        }))}
       />
       <div className={isDark ? "min-h-screen bg-slate-950 text-slate-100 relative overflow-hidden"
                              : "min-h-screen bg-slate-50 text-slate-900 relative overflow-hidden"}>
