@@ -1,26 +1,44 @@
 import React from "react";
+import { SchemaGenerator, DEFAULT_FAQ_QUESTIONS } from "../utils/schemaGenerator";
 
 /**
  * SEO Head 組件
  * 用於動態更新頁面的 meta 標籤和結構化資料
+ * 支援平台論壇導向的 Schema 優化
  */
 interface SEOHeadProps {
   title?: string;
   description?: string;
   currentPage?: "home" | "tools";
   category?: string; // 當前分類，用於設置分享連結的錨點
+  tools?: Array<{ // 工具列表（用於分類頁面）
+    name: string;
+    description: string;
+    category: string;
+    tags?: string[];
+    url?: string;
+    logo?: string;
+  }>;
 }
 
 export const SEOHead: React.FC<SEOHeadProps> = ({ 
   title = "AIJob 自動化學院 - AI 工具庫與自動化教學",
   description = "AIJob 自動化學院專注於 AI 與自動化技術教學，提供 AI 工具庫、n8n 自動化課程、LINE 社群、Discord 社群等資源，從零打造你的工作流效率。",
   currentPage = "home",
-  category
+  category,
+  tools = []
 }) => {
   const siteUrl = "https://aitools.aijob.com.tw";
   const imageUrl = "https://static.wixstatic.com/media/9705bb_dd62dc9b5ff6496a9a9560ca516f9851~mv2.png";
 
   React.useEffect(() => {
+    // 初始化 Schema 生成器
+    const schemaGenerator = new SchemaGenerator({
+      siteUrl,
+      organizationName: "AIJob 自動化學院",
+      organizationLogo: imageUrl,
+      organizationUrl: siteUrl
+    });
     // 動態更新 document.title
     document.title = title;
     
@@ -67,92 +85,46 @@ export const SEOHead: React.FC<SEOHeadProps> = ({
     updateTwitterMeta('twitter:title', title);
     updateTwitterMeta('twitter:description', description);
 
-    // 添加結構化資料（使用最新的資料）
-    // 1. WebSite 結構化資料（Google 推薦的基礎結構化資料）
-    const websiteStructuredData = {
-      "@context": "https://schema.org",
-      "@type": "WebSite",
-      "name": "AIJob AI工具庫",
-      "alternateName": "AIJob 自動化學院",
-      "url": siteUrl,
-      "description": description,
-      "potentialAction": {
-        "@type": "SearchAction",
-        "target": {
-          "@type": "EntryPoint",
-          "urlTemplate": siteUrl + "/#search={search_term_string}"
-        },
-        "query-input": "required name=search_term_string"
-      },
-      "publisher": {
-        "@type": "Organization",
-        "name": "AIJob 自動化學院",
-        "logo": {
-          "@type": "ImageObject",
-          "url": imageUrl
-        }
-      }
-    };
+    // 使用 Schema 生成器生成結構化資料
+    
+    // 1. WebSite 結構化資料（增強版 - 平台論壇特性）
+    const websiteStructuredData = schemaGenerator.generateWebSiteSchema(description);
+    SchemaGenerator.injectSchema(websiteStructuredData, "website");
 
-    // 2. EducationalOrganization 結構化資料
-    const currentStructuredData = {
-      "@context": "https://schema.org",
-      "@type": "EducationalOrganization",
-      "name": "AIJob 自動化學院",
-      "alternateName": "AIJob 自動化學院",
-      "url": siteUrl,
-      "logo": imageUrl,
-      "description": description,
-      "address": {
-        "@type": "PostalAddress",
-        "addressCountry": "TW",
-        "addressRegion": "台北市",
-        "addressLocality": "內湖區",
-        "streetAddress": "康寧路三段之7號3樓"
-      },
-      "contactPoint": {
-        "@type": "ContactPoint",
-        "telephone": "+886-02-6605-7111",
-        "contactType": "customer service",
-        "email": "aiagentg888@gmail.com",
-        "areaServed": "TW",
-        "availableLanguage": ["zh-Hant", "zh-TW"]
-      },
-      "sameAs": [
-        "https://www.aijob.com.tw/",
-        "https://www.instagram.com/aijobschool/",
-        "https://youtube.com/@aijobschool",
-        "https://discord.gg/Dzm2P7rHyg"
-      ],
-      "offers": {
-        "@type": "Offer",
-        "name": "n8n 行銷 AI 自動化課程",
-        "url": "https://onsell.aijob.com.tw",
-        "priceCurrency": "TWD",
-        "availability": "https://schema.org/InStock"
-      }
-    };
+    // 2. EducationalOrganization 結構化資料（增強版 - 社群特性）
+    const organizationStructuredData = schemaGenerator.generateOrganizationSchema(description);
+    SchemaGenerator.injectSchema(organizationStructuredData, "organization");
 
-    // 更新或創建 WebSite 結構化資料
-    let websiteScript = document.querySelector('script[data-schema="website"]');
-    if (!websiteScript) {
-      websiteScript = document.createElement('script');
-      websiteScript.setAttribute('type', 'application/ld+json');
-      websiteScript.setAttribute('data-schema', 'website');
-      document.head.appendChild(websiteScript);
+    // 3. FAQPage Schema（首頁 - GEO 強化）
+    if (currentPage === "home") {
+      const faqSchema = schemaGenerator.generateFAQSchema(DEFAULT_FAQ_QUESTIONS);
+      SchemaGenerator.injectSchema(faqSchema, "faq");
+    } else {
+      SchemaGenerator.removeSchema("faq");
     }
-    websiteScript.textContent = JSON.stringify(websiteStructuredData, null, 2);
 
-    // 更新或創建 EducationalOrganization 結構化資料
-    let script = document.querySelector('script[data-schema="organization"]');
-    if (!script) {
-      script = document.createElement('script');
-      script.setAttribute('type', 'application/ld+json');
-      script.setAttribute('data-schema', 'organization');
-      document.head.appendChild(script);
+    // 4. BreadcrumbList Schema（分類頁面和工具頁面）
+    if (currentPage === "tools" && category) {
+      const breadcrumbSchema = schemaGenerator.generateBreadcrumbSchema([category]);
+      SchemaGenerator.injectSchema(breadcrumbSchema, "breadcrumb");
+    } else if (currentPage === "tools") {
+      const breadcrumbSchema = schemaGenerator.generateBreadcrumbSchema(["tools"]);
+      SchemaGenerator.injectSchema(breadcrumbSchema, "breadcrumb");
+    } else {
+      SchemaGenerator.removeSchema("breadcrumb");
     }
-    script.textContent = JSON.stringify(currentStructuredData, null, 2);
-  }, [title, description, currentPage, category, siteUrl, imageUrl]);
+
+    // 5. ItemList Schema（分類頁面）
+    if (currentPage === "tools" && category && tools.length > 0) {
+      const categoryTools = tools.filter(tool => tool.category === category);
+      if (categoryTools.length > 0) {
+        const itemListSchema = schemaGenerator.generateCategoryItemListSchema(category, categoryTools);
+        SchemaGenerator.injectSchema(itemListSchema, "category-itemlist");
+      }
+    } else {
+      SchemaGenerator.removeSchema("category-itemlist");
+    }
+  }, [title, description, currentPage, category, tools]);
 
   return null; // 此組件不渲染任何內容
 };
